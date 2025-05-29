@@ -1,0 +1,8 @@
+evolution-api-client
+openai
+llama-index
+streamlit
+pydantic
+python-dotenv
+requests
+dice
