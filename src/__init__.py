@@ -1,0 +1,1 @@
+# WhatsApp RPG GM - Módulo Principal

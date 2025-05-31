@@ -1,0 +1,1 @@
+# Core - Módulo central do sistema
