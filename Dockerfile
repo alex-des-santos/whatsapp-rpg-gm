@@ -1,37 +1,46 @@
-# Dockerfile para WhatsApp RPG GM
+# WhatsApp RPG GM - Dockerfile
 FROM python:3.11-slim
 
-WORKDIR /app
+# Definir variáveis de ambiente
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Configurações de ambiente
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+# Criar usuário não-root
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Instalar dependências do sistema
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
     curl \
-    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Criar e ativar ambiente virtual
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Definir diretório de trabalho
+WORKDIR /app
 
 # Copiar requirements primeiro para aproveitar cache do Docker
 COPY requirements.txt .
+
+# Instalar dependências Python
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copiar código-fonte
+# Copiar código da aplicação
 COPY . .
 
 # Criar diretórios necessários
-RUN mkdir -p logs data
+RUN mkdir -p logs data/characters data/campaigns data/prompts
 
-# Expor portas
-EXPOSE 3000 8501 7860
+# Alterar proprietário dos arquivos
+RUN chown -R appuser:appuser /app
 
-# Comando para iniciar o servidor (com privilégios reduzidos)
-CMD ["python", "main.py"]
+# Mudar para usuário não-root
+USER appuser
+
+# Expor porta
+EXPOSE 3000
+
+# Comando de inicialização
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000", "--workers", "1"]

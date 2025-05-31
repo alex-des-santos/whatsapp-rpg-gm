@@ -3,421 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RPG GM Dashboard - AI Assistant</title>
-    <link rel="stylesheet" href="style.css">
+    <title>WhatsApp RPG GM - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <nav class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <div class="logo-icon">🎲</div>
-                    <span class="logo-text">RPG GM AI</span>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <i class="fas fa-dice-d20"></i>
+                    WhatsApp RPG GM
+                </h1>
+                <div class="status-indicators">
+                    <div class="status-item" id="api-status">
+                        <i class="fas fa-circle"></i>
+                        <span>API</span>
+                    </div>
+                    <div class="status-item" id="whatsapp-status">
+                        <i class="fab fa-whatsapp"></i>
+                        <span>WhatsApp</span>
+                    </div>
+                    <div class="status-item" id="db-status">
+                        <i class="fas fa-database"></i>
+                        <span>Database</span>
+                    </div>
                 </div>
             </div>
-            
-            <ul class="sidebar-menu">
-                <li class="menu-item active" data-section="dashboard">
-                    <span class="menu-icon">📊</span>
-                    <span class="menu-text">Dashboard</span>
-                </li>
-                <li class="menu-item" data-section="whatsapp">
-                    <span class="menu-icon">💬</span>
-                    <span class="menu-text">WhatsApp</span>
-                </li>
-                <li class="menu-item" data-section="game-state">
-                    <span class="menu-icon">⚔️</span>
-                    <span class="menu-text">Estado do Jogo</span>
-                </li>
-                <li class="menu-item" data-section="ai-module">
-                    <span class="menu-icon">🤖</span>
-                    <span class="menu-text">IA</span>
-                </li>
-                <li class="menu-item" data-section="dice-system">
-                    <span class="menu-icon">🎲</span>
-                    <span class="menu-text">Sistema de Dados</span>
-                </li>
-                <li class="menu-item" data-section="hitl">
-                    <span class="menu-icon">👤</span>
-                    <span class="menu-text">HITL</span>
-                </li>
-                <li class="menu-item" data-section="settings">
-                    <span class="menu-icon">⚙️</span>
-                    <span class="menu-text">Configurações</span>
-                </li>
-            </ul>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="tab-button active" data-tab="dashboard">
+                <i class="fas fa-tachometer-alt"></i>
+                Dashboard
+            </button>
+            <button class="tab-button" data-tab="sessions">
+                <i class="fas fa-users"></i>
+                Sessões
+            </button>
+            <button class="tab-button" data-tab="characters">
+                <i class="fas fa-user-friends"></i>
+                Personagens
+            </button>
+            <button class="tab-button" data-tab="dice">
+                <i class="fas fa-dice"></i>
+                Dados
+            </button>
+            <button class="tab-button" data-tab="logs">
+                <i class="fas fa-file-alt"></i>
+                Logs
+            </button>
         </nav>
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Dashboard Section -->
-            <section id="dashboard" class="content-section active">
-                <h1>Dashboard Principal</h1>
-                
-                <!-- Metrics Cards -->
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="metric-icon">💬</div>
-                        <div class="metric-content">
-                            <div class="metric-value" id="messages-today">127</div>
-                            <div class="metric-label">Mensagens Hoje</div>
+            <!-- Dashboard Tab -->
+            <div class="tab-content active" id="dashboard">
+                <div class="dashboard-grid">
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="active-sessions">0</h3>
+                                <p>Sessões Ativas</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon">👥</div>
-                        <div class="metric-content">
-                            <div class="metric-value" id="active-sessions">3</div>
-                            <div class="metric-label">Sessões Ativas</div>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon">👤</div>
-                        <div class="metric-content">
-                            <div class="metric-value" id="human-interventions">2</div>
-                            <div class="metric-label">Intervenções Humanas</div>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon">🎲</div>
-                        <div class="metric-content">
-                            <div class="metric-value" id="dice-rolls">45</div>
-                            <div class="metric-label">Rolagens de Dados</div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Status Cards -->
-                <div class="status-section">
-                    <h2>Status do Sistema</h2>
-                    <div class="status-grid">
-                        <div class="status-card">
-                            <div class="status-header">
-                                <span>WhatsApp API</span>
-                                <span class="status status--success">Online</span>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-friends"></i>
                             </div>
-                            <div class="status-detail">Conectado e funcional</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-header">
-                                <span>LLM Principal</span>
-                                <span class="status status--success">Online</span>
+                            <div class="stat-content">
+                                <h3 id="total-players">0</h3>
+                                <p>Jogadores Ativos</p>
                             </div>
-                            <div class="status-detail">GPT-4 respondendo normalmente</div>
                         </div>
-                        <div class="status-card">
-                            <div class="status-header">
-                                <span>Base de Conhecimento</span>
-                                <span class="status status--success">Online</span>
-                            </div>
-                            <div class="status-detail">Última atualização: 10min atrás</div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-header">
-                                <span>Sistema de Dados</span>
-                                <span class="status status--success">Online</span>
-                            </div>
-                            <div class="status-detail">Todas as funções operacionais</div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Activity Feed -->
-                <div class="activity-section">
-                    <h2>Atividades Recentes</h2>
-                    <div class="activity-feed" id="activity-feed">
-                        <!-- Populated by JavaScript -->
-                    </div>
-                </div>
-            </section>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-dice-d20"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="dice-rolls">0</h3>
+                                <p>Rolagens Hoje</p>
+                            </div>
+                        </div>
 
-            <!-- WhatsApp Section -->
-            <section id="whatsapp" class="content-section">
-                <h1>Simulador WhatsApp</h1>
-                
-                <div class="whatsapp-container">
-                    <div class="chat-header">
-                        <div class="chat-avatar">🤖</div>
-                        <div class="chat-info">
-                            <div class="chat-name">GM AI Assistant</div>
-                            <div class="chat-status">Online</div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="messages-today">0</h3>
+                                <p>Mensagens Hoje</p>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="chat-messages" id="chat-messages">
-                        <!-- Messages populated by JavaScript -->
-                    </div>
-                    
-                    <div class="chat-actions">
-                        <button class="btn btn--secondary action-btn" data-action="attack">⚔️ Atacar</button>
-                        <button class="btn btn--secondary action-btn" data-action="defend">🛡️ Defender</button>
-                        <button class="btn btn--secondary action-btn" data-action="investigate">🔍 Investigar</button>
-                        <button class="btn btn--secondary action-btn" data-action="talk">💬 Falar</button>
-                    </div>
-                    
-                    <div class="chat-input">
-                        <input type="text" class="form-control" id="message-input" placeholder="Digite sua mensagem...">
-                        <button class="btn btn--primary" id="send-message">Enviar</button>
-                    </div>
-                </div>
-            </section>
 
-            <!-- Game State Section -->
-            <section id="game-state" class="content-section">
-                <h1>Estado do Jogo</h1>
-                
-                <div class="game-state-grid">
-                    <!-- Characters -->
-                    <div class="game-section">
-                        <h2>Personagens</h2>
-                        <div class="characters-container" id="characters-container">
-                            <!-- Populated by JavaScript -->
+                    <!-- Quick Actions -->
+                    <div class="quick-actions">
+                        <h3>Ações Rápidas</h3>
+                        <div class="action-buttons">
+                            <button class="action-btn" onclick="sendGlobalMessage()">
+                                <i class="fas fa-bullhorn"></i>
+                                Anúncio Global
+                            </button>
+                            <button class="action-btn" onclick="pauseAllSessions()">
+                                <i class="fas fa-pause"></i>
+                                Pausar Sessões
+                            </button>
+                            <button class="action-btn" onclick="backupData()">
+                                <i class="fas fa-save"></i>
+                                Backup
+                            </button>
+                            <button class="action-btn" onclick="viewLogs()">
+                                <i class="fas fa-file-alt"></i>
+                                Ver Logs
+                            </button>
                         </div>
                     </div>
-                    
-                    <!-- World State -->
-                    <div class="game-section">
-                        <h2>Mundo</h2>
-                        <div class="world-info card">
-                            <div class="card__body">
-                                <div class="world-item">
-                                    <label>Cena Atual:</label>
-                                    <span id="current-scene">Investigação na Taverna</span>
-                                </div>
-                                <div class="world-item">
-                                    <label>Quest Ativa:</label>
-                                    <span id="active-quest">O Mistério dos Comerciantes Desaparecidos</span>
-                                </div>
-                                <div class="world-item">
-                                    <label>Localização:</label>
-                                    <span id="location">Taverna do Dragão Dourado</span>
-                                </div>
-                                <div class="world-item">
-                                    <label>Ambiente:</label>
-                                    <span id="environment">Final da tarde, chuva leve</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="npcs-section">
-                            <h3>NPCs Presentes</h3>
-                            <div id="npcs-container">
-                                <!-- Populated by JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
-            <!-- AI Module Section -->
-            <section id="ai-module" class="content-section">
-                <h1>Módulo de IA</h1>
-                
-                <div class="ai-config-grid">
-                    <div class="llm-configs">
-                        <h2>Configuração de LLMs</h2>
-                        <div class="llm-tabs">
-                            <button class="tab-btn active" data-llm="openai">OpenAI</button>
-                            <button class="tab-btn" data-llm="anthropic">Anthropic</button>
-                            <button class="tab-btn" data-llm="google">Google</button>
-                            <button class="tab-btn" data-llm="local">Local</button>
-                        </div>
-                        
-                        <div class="llm-config" id="llm-config">
-                            <!-- Populated by JavaScript -->
-                        </div>
-                    </div>
-                    
-                    <div class="prompt-tester">
-                        <h2>Teste de Prompts</h2>
-                        <div class="card">
-                            <div class="card__body">
-                                <div class="form-group">
-                                    <label class="form-label">Prompt de Teste:</label>
-                                    <textarea class="form-control" id="test-prompt" rows="4" placeholder="Digite um prompt para testar..."></textarea>
-                                </div>
-                                <button class="btn btn--primary" id="test-llm">Testar LLM</button>
-                                
-                                <div class="test-result" id="test-result" style="display: none;">
-                                    <h4>Resultado:</h4>
-                                    <div class="result-content"></div>
-                                </div>
-                            </div>
+                    <!-- Recent Activity -->
+                    <div class="recent-activity">
+                        <h3>Atividade Recente</h3>
+                        <div class="activity-list" id="activity-list">
+                            <!-- Atividades serão carregadas via JavaScript -->
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <!-- Dice System Section -->
-            <section id="dice-system" class="content-section">
-                <h1>Sistema de Dados</h1>
-                
-                <div class="dice-container">
-                    <div class="dice-section">
-                        <h2>Dados D&D</h2>
-                        <div class="dice-buttons">
-                            <button class="dice-btn" data-sides="4">d4</button>
-                            <button class="dice-btn" data-sides="6">d6</button>
-                            <button class="dice-btn" data-sides="8">d8</button>
-                            <button class="dice-btn" data-sides="10">d10</button>
-                            <button class="dice-btn" data-sides="12">d12</button>
-                            <button class="dice-btn" data-sides="20">d20</button>
-                        </div>
-                        
-                        <div class="custom-roll">
-                            <h3>Rolagem Customizada</h3>
-                            <div class="flex gap-8">
-                                <input type="text" class="form-control" id="custom-dice" placeholder="Ex: 2d6+3">
-                                <button class="btn btn--primary" id="roll-custom">Rolar</button>
-                            </div>
-                        </div>
-                        
-                        <div class="dc-calculator">
-                            <h3>Calculadora de Testes</h3>
-                            <div class="flex gap-8">
-                                <input type="number" class="form-control" id="dc-value" placeholder="DC" min="1" max="30">
-                                <button class="btn btn--secondary" id="roll-dc">Rolar d20</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="dice-results">
-                        <h2>Resultados</h2>
-                        <div class="current-result" id="current-result">
-                            <div class="result-display">Nenhuma rolagem ainda</div>
-                        </div>
-                        
-                        <div class="dice-history">
-                            <h3>Histórico</h3>
-                            <div class="history-list" id="dice-history">
-                                <!-- Populated by JavaScript -->
-                            </div>
-                        </div>
-                    </div>
+            <!-- Sessions Tab -->
+            <div class="tab-content" id="sessions">
+                <div class="content-header">
+                    <h2>Sessões de Jogo</h2>
+                    <button class="btn btn-primary" onclick="createNewSession()">
+                        <i class="fas fa-plus"></i>
+                        Nova Sessão
+                    </button>
                 </div>
-            </section>
+                <div class="sessions-grid" id="sessions-grid">
+                    <!-- Sessões serão carregadas via JavaScript -->
+                </div>
+            </div>
 
-            <!-- HITL Section -->
-            <section id="hitl" class="content-section">
-                <h1>Sistema HITL</h1>
-                
-                <div class="hitl-container">
-                    <div class="intervention-alerts">
-                        <h2>Alertas de Intervenção</h2>
-                        <div class="alerts-container" id="alerts-container">
-                            <!-- Populated by JavaScript -->
-                        </div>
-                    </div>
-                    
-                    <div class="control-panel">
-                        <h2>Controle Manual</h2>
-                        <div class="card">
-                            <div class="card__body">
-                                <div class="control-toggle">
-                                    <label class="form-label">Modo de Operação:</label>
-                                    <div class="toggle-buttons">
-                                        <button class="btn btn--secondary active" id="auto-mode">IA Automática</button>
-                                        <button class="btn btn--outline" id="manual-mode">Controle Manual</button>
-                                    </div>
-                                </div>
-                                
-                                <div class="manual-response" id="manual-response" style="display: none;">
-                                    <div class="form-group">
-                                        <label class="form-label">Resposta Manual do GM:</label>
-                                        <textarea class="form-control" id="gm-response" rows="4" placeholder="Digite a resposta manual..."></textarea>
-                                    </div>
-                                    <button class="btn btn--primary" id="send-manual">Enviar Resposta</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="session-transcript">
-                        <h2>Transcrição da Sessão</h2>
-                        <div class="transcript-container" id="transcript-container">
-                            <!-- Populated by JavaScript -->
-                        </div>
+            <!-- Characters Tab -->
+            <div class="tab-content" id="characters">
+                <div class="content-header">
+                    <h2>Personagens</h2>
+                    <div class="search-box">
+                        <input type="text" placeholder="Buscar personagem..." id="character-search">
+                        <i class="fas fa-search"></i>
                     </div>
                 </div>
-            </section>
+                <div class="characters-grid" id="characters-grid">
+                    <!-- Personagens serão carregados via JavaScript -->
+                </div>
+            </div>
 
-            <!-- Settings Section -->
-            <section id="settings" class="content-section">
-                <h1>Configurações</h1>
-                
-                <div class="settings-container">
-                    <div class="settings-section">
-                        <h2>Evolution API</h2>
-                        <div class="card">
-                            <div class="card__body">
-                                <div class="form-group">
-                                    <label class="form-label">URL da API:</label>
-                                    <input type="text" class="form-control" id="api-url" value="https://api.evolution.com">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Token:</label>
-                                    <input type="password" class="form-control" id="api-token" value="••••••••">
-                                </div>
-                                <button class="btn btn--primary">Testar Conexão</button>
-                            </div>
+            <!-- Dice Tab -->
+            <div class="tab-content" id="dice">
+                <div class="dice-roller">
+                    <h2>Rolador de Dados</h2>
+                    <div class="dice-input">
+                        <input type="text" id="dice-expression" placeholder="Ex: 1d20+5" value="1d20">
+                        <select id="advantage-type">
+                            <option value="normal">Normal</option>
+                            <option value="advantage">Vantagem</option>
+                            <option value="disadvantage">Desvantagem</option>
+                        </select>
+                        <button onclick="rollDice()" class="btn btn-primary">
+                            <i class="fas fa-dice"></i>
+                            Rolar
+                        </button>
+                    </div>
+
+                    <div class="dice-presets">
+                        <h3>Rolagens Rápidas</h3>
+                        <div class="preset-buttons">
+                            <button onclick="quickRoll('1d4')" class="dice-btn">D4</button>
+                            <button onclick="quickRoll('1d6')" class="dice-btn">D6</button>
+                            <button onclick="quickRoll('1d8')" class="dice-btn">D8</button>
+                            <button onclick="quickRoll('1d10')" class="dice-btn">D10</button>
+                            <button onclick="quickRoll('1d12')" class="dice-btn">D12</button>
+                            <button onclick="quickRoll('1d20')" class="dice-btn">D20</button>
+                            <button onclick="quickRoll('1d100')" class="dice-btn">D100</button>
                         </div>
                     </div>
-                    
-                    <div class="settings-section">
-                        <h2>Parâmetros de IA</h2>
-                        <div class="card">
-                            <div class="card__body">
-                                <div class="form-group">
-                                    <label class="form-label">Provider Ativo:</label>
-                                    <select class="form-control" id="active-provider">
-                                        <option value="openai" selected>OpenAI GPT-4</option>
-                                        <option value="anthropic">Anthropic Claude</option>
-                                        <option value="google">Google Gemini</option>
-                                        <option value="local">Local Llama</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Tempo Limite (s):</label>
-                                    <input type="number" class="form-control" id="timeout" value="30" min="5" max="120">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Tentativas:</label>
-                                    <input type="number" class="form-control" id="retries" value="3" min="1" max="5">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="settings-section">
-                        <h2>Configurações de RPG</h2>
-                        <div class="card">
-                            <div class="card__body">
-                                <div class="form-group">
-                                    <label class="form-label">Sistema:</label>
-                                    <select class="form-control" id="rpg-system">
-                                        <option value="dnd5e" selected>D&D 5ª Edição</option>
-                                        <option value="pathfinder">Pathfinder</option>
-                                        <option value="vampire">Vampiro: A Máscara</option>
-                                        <option value="cyberpunk">Cyberpunk Red</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Nível de Dificuldade:</label>
-                                    <select class="form-control" id="difficulty">
-                                        <option value="easy">Fácil</option>
-                                        <option value="normal" selected>Normal</option>
-                                        <option value="hard">Difícil</option>
-                                        <option value="brutal">Brutal</option>
-                                    </select>
-                                </div>
-                            </div>
+
+                    <div class="dice-result" id="dice-result">
+                        <div class="result-placeholder">
+                            <i class="fas fa-dice-d20"></i>
+                            <p>Role os dados para ver o resultado</p>
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
+
+            <!-- Logs Tab -->
+            <div class="tab-content" id="logs">
+                <div class="logs-container">
+                    <div class="logs-header">
+                        <h2>Logs do Sistema</h2>
+                        <div class="log-controls">
+                            <select id="log-level">
+                                <option value="all">Todos</option>
+                                <option value="error">Erros</option>
+                                <option value="warning">Avisos</option>
+                                <option value="info">Info</option>
+                            </select>
+                            <button onclick="refreshLogs()" class="btn btn-secondary">
+                                <i class="fas fa-sync"></i>
+                                Atualizar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="logs-content" id="logs-content">
+                        <!-- Logs serão carregados via JavaScript -->
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner">
+            <i class="fas fa-dice-d20 fa-spin"></i>
+            <p>Carregando...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
 </body>
 </html>

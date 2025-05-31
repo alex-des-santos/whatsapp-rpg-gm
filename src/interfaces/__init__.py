@@ -1,0 +1,1 @@
+"""Módulo de interfaces da API"""

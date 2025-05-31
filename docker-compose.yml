@@ -1,0 +1,218 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # APLICAÇÃO PRINCIPAL
+  # ============================================================================
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - EVOLUTION_API_URL=http://evolution-api:8080
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - rpg-network
+
+  # ============================================================================
+  # BASE DE DADOS
+  # ============================================================================
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: rpg_gm_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - rpg-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - rpg-network
+
+  # ============================================================================
+  # EVOLUTION API (WHATSAPP)
+  # ============================================================================
+  evolution-api:
+    image: atendai/evolution-api:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - CORS_ORIGIN=*
+      - CORS_METHODS=POST,GET,PUT,DELETE
+      - CORS_CREDENTIALS=true
+      - LOG_LEVEL=ERROR
+      - LOG_COLOR=true
+      - LOG_BAILEYS=error
+      - DATABASE_ENABLED=true
+      - DATABASE_CONNECTION_URI=postgresql://postgres:postgres123@postgres:5432/evolution_db
+      - DATABASE_CONNECTION_CLIENT_NAME=EvolutionAPI
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://redis:6379
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_GLOBAL_URL=http://app:3000/webhook
+      - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=true
+      - CONFIG_SESSION_PHONE_CLIENT=WhatsApp RPG GM
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - evolution_instances:/evolution/instances
+    restart: unless-stopped
+    networks:
+      - rpg-network
+
+  # ============================================================================
+  # INTERFACES WEB (OPCIONAL)
+  # ============================================================================
+  streamlit:
+    build: .
+    command: streamlit run src/interfaces/streamlit_dashboard.py --server.address 0.0.0.0 --server.port 8501
+    ports:
+      - "8501:8501"
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+    depends_on:
+      - app
+      - postgres
+      - redis
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - rpg-network
+    profiles:
+      - dashboard
+
+  gradio:
+    build: .
+    command: python src/interfaces/gradio_interface.py
+    ports:
+      - "7860:7860"
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - rpg-network
+    profiles:
+      - dashboard
+
+  # ============================================================================
+  # NGINX PROXY (OPCIONAL)
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend:/usr/share/nginx/html
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - rpg-network
+    profiles:
+      - production
+
+  # ============================================================================
+  # MONITORAMENTO (OPCIONAL)
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    restart: unless-stopped
+    networks:
+      - rpg-network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - rpg-network
+    profiles:
+      - monitoring
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  evolution_instances:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  rpg-network:
+    driver: bridge
+
+# ============================================================================
+# CONFIGURAÇÕES ADICIONAIS
+# ============================================================================
+# Para usar perfis específicos:
+# 
+# Básico (apenas essenciais):
+# docker-compose up -d app postgres redis evolution-api
+#
+# Com dashboards:
+# docker-compose --profile dashboard up -d
+#
+# Com monitoramento:
+# docker-compose --profile monitoring up -d
+#
+# Completo:
+# docker-compose --profile dashboard --profile monitoring --profile production up -d

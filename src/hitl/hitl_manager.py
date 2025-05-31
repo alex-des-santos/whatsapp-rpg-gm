@@ -1,420 +1,366 @@
 """
-HITL Manager - Sistema Human-in-the-Loop
-Detecta situações que requerem intervenção humana e envia notificações
+HITL Manager - Human-in-the-Loop
+Sistema para detectar situações que requerem intervenção humana
 """
 
 import asyncio
+import logging
 import json
 from datetime import datetime
 from typing import Dict, List, Any, Optional
-from loguru import logger
+from enum import Enum
 
+from ..core.config import settings
+from ..core.database import cache_set, cache_get
+
+logger = logging.getLogger(__name__)
+
+class HITLTrigger(Enum):
+    """Tipos de gatilhos para intervenção humana"""
+    COMPLEX_SITUATION = "complex_situation"
+    INAPPROPRIATE_CONTENT = "inappropriate_content"
+    RULES_DISPUTE = "rules_dispute"
+    PLAYER_CONFLICT = "player_conflict"
+    TECHNICAL_ERROR = "technical_error"
+    CUSTOM_REQUEST = "custom_request"
+    AI_UNCERTAINTY = "ai_uncertainty"
 
 class HITLManager:
-    """Gerenciador do sistema Human-in-the-Loop"""
-    
-    def __init__(self, settings):
-        self.settings = settings
-        self._ready = False
-        
-        # Estado das intervenções
-        self.active_interventions: Dict[str, Dict] = {}
-        self.intervention_history: List[Dict] = []
-        
-        # Configurações de notificação
-        self.notification_enabled = True
-        self.mock_mode = True  # Para o protótipo
-        
-        # Tipos de intervenção
-        self.intervention_types = {
-            "rule_conflict": {
-                "priority": "high",
-                "description": "Conflito de regras detectado"
-            },
-            "critical_decision": {
-                "priority": "high",
-                "description": "Decisão crítica necessária"
-            },
-            "complex_narrative": {
-                "priority": "medium",
-                "description": "Situação narrativa complexa"
-            },
-            "ai_request": {
-                "priority": "medium",
-                "description": "IA solicitou intervenção"
-            },
-            "player_complaint": {
-                "priority": "high",
-                "description": "Reclamação de jogador"
-            },
-            "technical_issue": {
-                "priority": "low",
-                "description": "Problema técnico detectado"
-            }
-        }
-    
-    async def initialize(self):
-        """Inicializar HITL Manager"""
-        try:
-            logger.info("Inicializando HITL Manager...")
-            
-            if self.mock_mode:
-                logger.info("📢 Modo mock ativado - notificações simuladas")
-            else:
-                # Em produção, configurar canais de notificação reais
-                await self._setup_notification_channels()
-            
-            self._ready = True
-            logger.info("✅ HITL Manager inicializado")
-            
-        except Exception as e:
-            logger.error(f"❌ Erro ao inicializar HITL Manager: {e}")
-            # Continuar em modo mock
-            self.mock_mode = True
-            self._ready = True
-            logger.warning("Continuando em modo mock")
-    
-    def is_ready(self) -> bool:
-        """Verifica se o HITL Manager está pronto"""
-        return self._ready
-    
-    async def _setup_notification_channels(self):
-        """Configurar canais de notificação reais"""
-        # TODO: Implementar configuração real de Discord, Email, SMS
-        pass
-    
-    async def trigger_intervention(self, reason: str, context: Dict, 
-                                  priority: str = "medium", 
-                                  intervention_type: str = "ai_request") -> Dict:
-        """
-        Aciona uma intervenção humana
-        
-        Args:
-            reason: Motivo da intervenção
-            context: Contexto da situação
-            priority: Prioridade (low, medium, high)
-            intervention_type: Tipo de intervenção
-            
-        Returns:
-            Dict com ID da intervenção e status
-        """
-        try:
-            # Gerar ID único
-            intervention_id = f"intervention_{datetime.now().timestamp()}"
-            
-            # Criar registro da intervenção
-            intervention = {
-                "id": intervention_id,
-                "type": intervention_type,
-                "reason": reason,
-                "context": context,
-                "priority": priority,
-                "status": "pending",
-                "created_at": datetime.now().isoformat(),
-                "notified_channels": [],
-                "resolution": None,
-                "resolved_at": None,
-                "resolved_by": None
-            }
-            
-            # Adicionar à lista de intervenções ativas
-            self.active_interventions[intervention_id] = intervention
-            
-            # Enviar notificações
-            notification_result = await self._send_notifications(intervention)
-            intervention["notified_channels"] = notification_result.get("channels", [])
-            
-            # Log da intervenção
-            logger.warning(f"🚨 HITL Intervenção acionada: {reason} (ID: {intervention_id})")
-            
-            return {
-                "intervention_id": intervention_id,
-                "status": "triggered",
-                "priority": priority,
-                "notifications_sent": notification_result.get("success", False)
-            }
-            
-        except Exception as e:
-            logger.error(f"Erro ao acionar intervenção: {e}")
-            return {
-                "error": str(e),
-                "status": "failed"
-            }
-    
-    async def _send_notifications(self, intervention: Dict) -> Dict:
-        """
-        Envia notificações para canais configurados
-        
-        Args:
-            intervention: Dados da intervenção
-            
-        Returns:
-            Resultado das notificações
-        """
-        if self.mock_mode:
-            return await self._send_mock_notifications(intervention)
-        else:
-            return await self._send_real_notifications(intervention)
-    
-    async def _send_mock_notifications(self, intervention: Dict) -> Dict:
-        """Simula envio de notificações para desenvolvimento"""
-        
-        channels_sent = []
-        
-        # Simular Discord
-        if self.settings.discord_webhook_url:
-            logger.info(f"📢 [MOCK] Discord notificado: {intervention['reason']}")
-            channels_sent.append("discord")
-        
-        # Simular Email
-        if self.settings.hitl_email_recipients:
-            logger.info(f"📧 [MOCK] Email enviado para: {', '.join(self.settings.hitl_email_recipients)}")
-            channels_sent.append("email")
-        
-        # Simular SMS
-        if self.settings.twilio_phone_number:
-            logger.info(f"📱 [MOCK] SMS enviado: {intervention['reason']}")
-            channels_sent.append("sms")
-        
+    """Gerenciador Human-in-the-Loop"""
+
+    def __init__(self):
+        self.trigger_keywords = self._load_trigger_keywords()
+        self.notification_channels = self._initialize_channels()
+        self.pending_interventions = {}
+
+        logger.info("HITL Manager inicializado")
+
+    def _load_trigger_keywords(self) -> Dict[HITLTrigger, List[str]]:
+        """Carregar palavras-chave que disparam intervenção"""
         return {
-            "success": True,
-            "channels": channels_sent,
-            "mode": "mock"
+            HITLTrigger.INAPPROPRIATE_CONTENT: [
+                "inadequado", "ofensivo", "impróprio", "inapropriado",
+                "violento", "sexual", "discriminação", "preconceito"
+            ],
+            HITLTrigger.RULES_DISPUTE: [
+                "regra", "não funciona assim", "está errado", "disputo",
+                "discordo", "regras oficiais", "manual", "errata"
+            ],
+            HITLTrigger.PLAYER_CONFLICT: [
+                "não gostei", "injusto", "favorecimento", "parcial",
+                "trapaça", "batota", "conflito", "discussão"
+            ],
+            HITLTrigger.COMPLEX_SITUATION: [
+                "não entendo", "complicado", "confuso", "ajuda",
+                "gm humano", "mestre real", "intervenção"
+            ],
+            HITLTrigger.CUSTOM_REQUEST: [
+                "gm", "mestre", "admin", "moderador", "suporte"
+            ]
         }
-    
-    async def _send_real_notifications(self, intervention: Dict) -> Dict:
-        """Envia notificações reais (para produção)"""
-        
-        channels_sent = []
-        errors = []
-        
-        try:
-            # Discord
-            if self.settings.discord_webhook_url:
-                discord_result = await self._send_discord_notification(intervention)
-                if discord_result["success"]:
-                    channels_sent.append("discord")
-                else:
-                    errors.append(f"Discord: {discord_result['error']}")
-            
-            # Email
-            if self.settings.hitl_email_recipients:
-                email_result = await self._send_email_notification(intervention)
-                if email_result["success"]:
-                    channels_sent.append("email")
-                else:
-                    errors.append(f"Email: {email_result['error']}")
-            
-            # SMS
-            if self.settings.twilio_phone_number:
-                sms_result = await self._send_sms_notification(intervention)
-                if sms_result["success"]:
-                    channels_sent.append("sms")
-                else:
-                    errors.append(f"SMS: {sms_result['error']}")
-            
-            return {
-                "success": len(channels_sent) > 0,
-                "channels": channels_sent,
-                "errors": errors
-            }
-            
-        except Exception as e:
-            logger.error(f"Erro ao enviar notificações: {e}")
-            return {
-                "success": False,
-                "channels": [],
-                "errors": [str(e)]
-            }
-    
-    async def _send_discord_notification(self, intervention: Dict) -> Dict:
-        """Envia notificação via Discord webhook"""
-        # TODO: Implementar envio real via Discord
-        return {"success": False, "error": "Not implemented"}
-    
-    async def _send_email_notification(self, intervention: Dict) -> Dict:
-        """Envia notificação via email"""
-        # TODO: Implementar envio real via SMTP
-        return {"success": False, "error": "Not implemented"}
-    
-    async def _send_sms_notification(self, intervention: Dict) -> Dict:
-        """Envia notificação via SMS (Twilio)"""
-        # TODO: Implementar envio real via Twilio
-        return {"success": False, "error": "Not implemented"}
-    
-    async def resolve_intervention(self, intervention_id: str, resolution: str, 
-                                 resolved_by: str = "human") -> Dict:
+
+    def _initialize_channels(self) -> Dict[str, Any]:
+        """Inicializar canais de notificação"""
+        channels = {}
+
+        # Discord
+        if settings.DISCORD_WEBHOOK_URL:
+            channels['discord'] = DiscordNotifier(settings.DISCORD_WEBHOOK_URL)
+
+        # Email
+        if all([settings.SMTP_HOST, settings.SMTP_USERNAME, settings.SMTP_PASSWORD]):
+            channels['email'] = EmailNotifier(
+                host=settings.SMTP_HOST,
+                port=settings.SMTP_PORT,
+                username=settings.SMTP_USERNAME,
+                password=settings.SMTP_PASSWORD,
+                from_email=settings.SMTP_FROM_EMAIL
+            )
+
+        # SMS via Twilio
+        if all([settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN]):
+            channels['sms'] = SMSNotifier(
+                account_sid=settings.TWILIO_ACCOUNT_SID,
+                auth_token=settings.TWILIO_AUTH_TOKEN,
+                from_number=settings.TWILIO_PHONE_NUMBER,
+                to_number=settings.GM_PHONE_NUMBER
+            )
+
+        return channels
+
+    async def should_trigger_hitl(self, message: str, context: Dict[str, Any]) -> bool:
         """
-        Resolve uma intervenção
-        
+        Verificar se uma situação requer intervenção humana
+
+        Args:
+            message: Mensagem do jogador
+            context: Contexto da sessão
+
+        Returns:
+            bool: True se requer intervenção
+        """
+        message_lower = message.lower()
+
+        # Verificar palavras-chave
+        for trigger_type, keywords in self.trigger_keywords.items():
+            for keyword in keywords:
+                if keyword in message_lower:
+                    logger.info(f"HITL trigger detectado: {trigger_type.value} - palavra: {keyword}")
+                    return True
+
+        # Verificar complexidade da situação
+        if self._is_complex_situation(message, context):
+            logger.info("HITL trigger: situação complexa detectada")
+            return True
+
+        # Verificar se IA está incerta
+        if self._ai_seems_uncertain(context):
+            logger.info("HITL trigger: IA incerta")
+            return True
+
+        return False
+
+    def _is_complex_situation(self, message: str, context: Dict[str, Any]) -> bool:
+        """Detectar se a situação é muito complexa para IA"""
+        complexity_indicators = [
+            len(message.split()) > 50,  # Mensagem muito longa
+            message.count('?') > 2,     # Muitas perguntas
+            'multi' in message.lower(), # Ações múltiplas
+            'simultâneo' in message.lower(),
+            'ao mesmo tempo' in message.lower()
+        ]
+
+        return sum(complexity_indicators) >= 2
+
+    def _ai_seems_uncertain(self, context: Dict[str, Any]) -> bool:
+        """Verificar se IA demonstra incerteza"""
+        # Implementar lógica para detectar incerteza da IA
+        # Por enquanto, retorna False
+        return False
+
+    async def request_intervention(self, session: Dict[str, Any], player_id: str, 
+                                 message: str, trigger_type: HITLTrigger = HITLTrigger.CUSTOM_REQUEST) -> str:
+        """
+        Solicitar intervenção humana
+
+        Args:
+            session: Dados da sessão
+            player_id: ID do jogador
+            message: Mensagem que gerou a solicitação
+            trigger_type: Tipo de gatilho
+
+        Returns:
+            str: ID da intervenção criada
+        """
+        intervention_id = f"hitl_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{player_id[:8]}"
+
+        intervention_data = {
+            'id': intervention_id,
+            'session_id': session['id'],
+            'player_id': player_id,
+            'message': message,
+            'trigger_type': trigger_type.value,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'pending',
+            'context': {
+                'current_scene': session.get('current_scene'),
+                'location': session.get('world_state', {}).get('location'),
+                'session_state': session.get('state'),
+                'players_count': len(session.get('players', []))
+            }
+        }
+
+        # Salvar no cache
+        await cache_set(f"hitl_intervention:{intervention_id}", 
+                       json.dumps(intervention_data), expire=86400)
+
+        self.pending_interventions[intervention_id] = intervention_data
+
+        # Enviar notificações
+        await self._send_notifications(intervention_data)
+
+        logger.info(f"Intervenção HITL criada: {intervention_id}")
+        return intervention_id
+
+    async def _send_notifications(self, intervention: Dict[str, Any]):
+        """Enviar notificações para todos os canais configurados"""
+        notification_text = self._format_notification(intervention)
+
+        for channel_name, notifier in self.notification_channels.items():
+            try:
+                await notifier.send(notification_text)
+                logger.info(f"Notificação HITL enviada via {channel_name}")
+            except Exception as e:
+                logger.error(f"Erro ao enviar notificação via {channel_name}: {e}")
+
+    def _format_notification(self, intervention: Dict[str, Any]) -> str:
+        """Formatar texto da notificação"""
+        return f"""
+🚨 **INTERVENÇÃO HITL NECESSÁRIA**
+
+**ID:** {intervention['id']}
+**Tipo:** {intervention['trigger_type']}
+**Sessão:** {intervention['session_id'][:8]}...
+**Jogador:** {intervention['player_id']}
+**Horário:** {intervention['timestamp']}
+
+**Contexto:**
+- Cena: {intervention['context']['current_scene']}
+- Local: {intervention['context']['location']}
+- Estado: {intervention['context']['session_state']}
+
+**Mensagem do Jogador:**
+{intervention['message']}
+
+Para responder, acesse o dashboard de GM.
+"""
+
+    async def resolve_intervention(self, intervention_id: str, gm_response: str, gm_id: str) -> bool:
+        """
+        Resolver intervenção com resposta do GM
+
         Args:
             intervention_id: ID da intervenção
-            resolution: Resolução aplicada
-            resolved_by: Quem resolveu
-            
+            gm_response: Resposta do GM humano
+            gm_id: ID do GM que respondeu
+
         Returns:
-            Status da resolução
+            bool: True se resolvido com sucesso
         """
         try:
-            if intervention_id not in self.active_interventions:
-                raise ValueError(f"Intervenção não encontrada: {intervention_id}")
-            
-            intervention = self.active_interventions[intervention_id]
-            
-            # Atualizar intervenção
-            intervention["status"] = "resolved"
-            intervention["resolution"] = resolution
-            intervention["resolved_at"] = datetime.now().isoformat()
-            intervention["resolved_by"] = resolved_by
-            
-            # Mover para histórico
-            self.intervention_history.append(intervention)
-            del self.active_interventions[intervention_id]
-            
-            logger.info(f"✅ Intervenção resolvida: {intervention_id}")
-            
-            return {
-                "status": "resolved",
-                "intervention_id": intervention_id,
-                "resolution": resolution
-            }
-            
+            intervention_key = f"hitl_intervention:{intervention_id}"
+            intervention_data = await cache_get(intervention_key)
+
+            if not intervention_data:
+                logger.error(f"Intervenção não encontrada: {intervention_id}")
+                return False
+
+            intervention = json.loads(intervention_data)
+            intervention['status'] = 'resolved'
+            intervention['gm_response'] = gm_response
+            intervention['gm_id'] = gm_id
+            intervention['resolved_at'] = datetime.now().isoformat()
+
+            # Atualizar no cache
+            await cache_set(intervention_key, json.dumps(intervention), expire=86400)
+
+            # Remover dos pendentes
+            if intervention_id in self.pending_interventions:
+                del self.pending_interventions[intervention_id]
+
+            logger.info(f"Intervenção resolvida: {intervention_id}")
+            return True
+
         except Exception as e:
             logger.error(f"Erro ao resolver intervenção: {e}")
-            return {
-                "error": str(e),
-                "status": "failed"
-            }
-    
-    async def get_active_interventions(self) -> List[Dict]:
-        """Retorna lista de intervenções ativas"""
-        return list(self.active_interventions.values())
-    
-    async def get_intervention_history(self, limit: int = 50) -> List[Dict]:
-        """Retorna histórico de intervenções"""
-        return self.intervention_history[-limit:]
-    
-    async def get_intervention_stats(self) -> Dict:
-        """Retorna estatísticas das intervenções"""
-        
-        total_interventions = len(self.intervention_history) + len(self.active_interventions)
-        active_count = len(self.active_interventions)
-        resolved_count = len(self.intervention_history)
-        
-        # Contar por tipo
-        type_counts = {}
-        priority_counts = {}
-        
-        all_interventions = list(self.active_interventions.values()) + self.intervention_history
-        
-        for intervention in all_interventions:
-            intervention_type = intervention.get("type", "unknown")
-            priority = intervention.get("priority", "unknown")
-            
-            type_counts[intervention_type] = type_counts.get(intervention_type, 0) + 1
-            priority_counts[priority] = priority_counts.get(priority, 0) + 1
-        
-        return {
-            "total_interventions": total_interventions,
-            "active_interventions": active_count,
-            "resolved_interventions": resolved_count,
-            "resolution_rate": (resolved_count / total_interventions * 100) if total_interventions > 0 else 0,
-            "by_type": type_counts,
-            "by_priority": priority_counts,
-            "last_updated": datetime.now().isoformat()
-        }
-    
-    def detect_intervention_needed(self, context: Dict) -> Optional[Dict]:
-        """
-        Detecta automaticamente se uma intervenção é necessária
-        
-        Args:
-            context: Contexto da situação
-            
-        Returns:
-            Dict com detalhes da intervenção necessária ou None
-        """
-        
-        # Regras de detecção automática
-        player_message = context.get("player_message", "").lower()
-        
-        # Palavras-chave que podem indicar problema
-        problem_keywords = [
-            "bug", "erro", "problema", "não funciona", "travou",
-            "injusto", "trapaça", "hack", "roubo"
-        ]
-        
-        # Palavras-chave sensíveis
-        sensitive_keywords = [
-            "suicídio", "morte", "matar", "violência",
-            "discriminação", "preconceito", "assédio"
-        ]
-        
-        # Detectar problemas técnicos
-        if any(keyword in player_message for keyword in problem_keywords):
-            return {
-                "type": "technical_issue",
-                "reason": "Possível problema técnico detectado",
-                "priority": "medium",
-                "auto_detected": True
-            }
-        
-        # Detectar conteúdo sensível
-        if any(keyword in player_message for keyword in sensitive_keywords):
-            return {
-                "type": "complex_narrative",
-                "reason": "Conteúdo sensível detectado",
-                "priority": "high",
-                "auto_detected": True
-            }
-        
-        # Detectar mensagens muito longas (possível confusão)
-        if len(player_message) > 500:
-            return {
-                "type": "complex_narrative",
-                "reason": "Mensagem muito longa, possível situação complexa",
-                "priority": "low",
-                "auto_detected": True
-            }
-        
-        return None
-    
-    async def create_intervention_report(self) -> str:
-        """Cria relatório das intervenções"""
-        
-        stats = await self.get_intervention_stats()
-        active_interventions = await self.get_active_interventions()
-        
-        report = f"""
-# Relatório de Intervenções HITL
+            return False
 
-## Estatísticas Gerais
-- **Total de Intervenções**: {stats['total_interventions']}
-- **Intervenções Ativas**: {stats['active_interventions']}
-- **Intervenções Resolvidas**: {stats['resolved_interventions']}
-- **Taxa de Resolução**: {stats['resolution_rate']:.1f}%
+    async def get_pending_interventions(self) -> List[Dict[str, Any]]:
+        """Obter lista de intervenções pendentes"""
+        return list(self.pending_interventions.values())
 
-## Por Tipo
+    async def notify_error(self, error_message: str, context: Dict[str, Any] = None):
+        """Notificar erro técnico"""
+        notification = f"""
+⚠️ **ERRO TÉCNICO DETECTADO**
+
+**Erro:** {error_message}
+**Horário:** {datetime.now().isoformat()}
+
+**Contexto:** {json.dumps(context, indent=2) if context else 'N/A'}
+
+Verificar logs do sistema para mais detalhes.
 """
-        
-        for intervention_type, count in stats['by_type'].items():
-            report += f"- **{intervention_type}**: {count}\n"
-        
-        report += "\n## Por Prioridade\n"
-        
-        for priority, count in stats['by_priority'].items():
-            report += f"- **{priority}**: {count}\n"
-        
-        if active_interventions:
-            report += "\n## Intervenções Ativas\n"
-            for intervention in active_interventions:
-                report += f"- **{intervention['id']}**: {intervention['reason']} (Prioridade: {intervention['priority']})\n"
-        
-        report += f"\n*Relatório gerado em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
-        
-        return report
-    
-    async def cleanup(self):
-        """Limpeza na finalização"""
-        logger.info("Finalizando HITL Manager...")
-        self._ready = False
+
+        for channel_name, notifier in self.notification_channels.items():
+            try:
+                await notifier.send(notification)
+            except Exception as e:
+                logger.error(f"Erro ao enviar notificação de erro via {channel_name}: {e}")
+
+# Notificadores específicos
+class DiscordNotifier:
+    """Notificador via Discord Webhook"""
+
+    def __init__(self, webhook_url: str):
+        self.webhook_url = webhook_url
+
+    async def send(self, message: str):
+        """Enviar mensagem via Discord"""
+        import httpx
+
+        payload = {
+            "content": message,
+            "username": "WhatsApp RPG GM",
+            "avatar_url": "https://cdn.iconscout.com/icon/free/png-256/discord-3-569463.png"
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(self.webhook_url, json=payload)
+
+            if response.status_code != 204:
+                raise Exception(f"Discord webhook failed: {response.status_code}")
+
+class EmailNotifier:
+    """Notificador via Email"""
+
+    def __init__(self, host: str, port: int, username: str, password: str, from_email: str):
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.from_email = from_email
+
+    async def send(self, message: str):
+        """Enviar email"""
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        msg = MIMEMultipart()
+        msg['From'] = self.from_email
+        msg['To'] = self.username  # Enviar para si mesmo
+        msg['Subject'] = "WhatsApp RPG GM - Intervenção HITL"
+
+        msg.attach(MIMEText(message, 'plain'))
+
+        # Enviar em thread separada para não bloquear
+        await asyncio.to_thread(self._send_sync, msg)
+
+    def _send_sync(self, msg):
+        """Enviar email de forma síncrona"""
+        with smtplib.SMTP(self.host, self.port) as server:
+            server.starttls()
+            server.login(self.username, self.password)
+            server.send_message(msg)
+
+class SMSNotifier:
+    """Notificador via SMS (Twilio)"""
+
+    def __init__(self, account_sid: str, auth_token: str, from_number: str, to_number: str):
+        self.account_sid = account_sid
+        self.auth_token = auth_token
+        self.from_number = from_number
+        self.to_number = to_number
+
+    async def send(self, message: str):
+        """Enviar SMS"""
+        try:
+            from twilio.rest import Client
+
+            client = Client(self.account_sid, self.auth_token)
+
+            # Truncar mensagem para limites SMS
+            if len(message) > 1600:
+                message = message[:1597] + "..."
+
+            await asyncio.to_thread(
+                client.messages.create,
+                body=message,
+                from_=self.from_number,
+                to=self.to_number
+            )
+
+        except ImportError:
+            logger.error("twilio package not installed")
+            raise Exception("Twilio not available")

@@ -1,0 +1,57 @@
+{
+  "name": "A Maldição de Strahd",
+  "description": "Uma aventura gótica de horror no vale sombrio de Barovia",
+  "setting": "Ravenloft",
+  "level_range": [1, 10],
+  "locations": {
+    "vila_de_barovia": {
+      "name": "Vila de Barovia",
+      "description": "Uma vila sombria envolta em névoa perpétua",
+      "npcs": [
+        {
+          "name": "Burgomaster Ismark",
+          "description": "Líder da vila, irmão de Ireena",
+          "personality": "Protetor, desesperado"
+        },
+        {
+          "name": "Ireena Kolyana", 
+          "description": "Mulher jovem atormentada por Strahd",
+          "personality": "Corajosa, determinada"
+        }
+      ],
+      "encounters": [
+        "Lobos sombrios na estrada",
+        "Zumbis no cemitério",
+        "Aparição na casa assombrada"
+      ]
+    },
+    "castelo_ravenloft": {
+      "name": "Castelo Ravenloft",
+      "description": "Fortaleza gótica do vampiro Conde Strahd",
+      "npcs": [
+        {
+          "name": "Conde Strahd von Zarovich",
+          "description": "Vampiro senhor de Barovia",
+          "personality": "Aristocrático, obcecado, cruel"
+        }
+      ]
+    }
+  },
+  "adventure_hooks": [
+    "Carta misteriosa pede ajuda em Barovia",
+    "Névoas levam os aventureiros para o vale",
+    "Contrato para escoltar uma caravana"
+  ],
+  "session_log": [
+    {
+      "session": 1,
+      "date": "2024-01-01",
+      "summary": "Os aventureiros chegaram à vila de Barovia e conheceram Ismark",
+      "key_events": [
+        "Chegada à vila",
+        "Encontro com Ismark",
+        "Primeira noite na taverna"
+      ]
+    }
+  ]
+}

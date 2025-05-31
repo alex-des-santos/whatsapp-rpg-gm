@@ -1,851 +1,658 @@
-// RPG GM Dashboard Application
-class RPGDashboard {
-    constructor() {
-        this.data = {
-            "characters": [
-                {
-                    "name": "Aria Nightwhisper",
-                    "class": "Ranger",
-                    "level": 5,
-                    "hp": {"current": 45, "max": 45},
-                    "stats": {
-                        "strength": 14,
-                        "dexterity": 18,
-                        "constitution": 16,
-                        "intelligence": 12,
-                        "wisdom": 15,
-                        "charisma": 10
-                    },
-                    "location": "Floresta Sombria",
-                    "inventory": ["Arco Élfico", "Aljava com 30 flechas", "Armadura de Couro", "Kit de Sobrevivência"],
-                    "status": "healthy"
-                },
-                {
-                    "name": "Thorin Barbaferro",
-                    "class": "Fighter",
-                    "level": 4,
-                    "hp": {"current": 38, "max": 42},
-                    "stats": {
-                        "strength": 17,
-                        "dexterity": 13,
-                        "constitution": 15,
-                        "intelligence": 10,
-                        "wisdom": 12,
-                        "charisma": 14
-                    },
-                    "location": "Taverna do Dragão",
-                    "inventory": ["Machado de Batalha", "Escudo", "Armadura de Placas", "Poção de Cura"],
-                    "status": "slightly_wounded"
-                }
-            ],
-            "world_state": {
-                "current_scene": "Investigação na Taverna",
-                "active_quest": "O Mistério dos Comerciantes Desaparecidos",
-                "npcs_present": [
-                    {"name": "Bartender Willem", "disposition": "friendly", "knows": "informações sobre comerciantes"},
-                    {"name": "Comerciante Suspeito", "disposition": "nervous", "knows": "pistas sobre o desaparecimento"}
-                ],
-                "environment": {
-                    "location": "Taverna do Dragão Dourado",
-                    "time": "Final da tarde",
-                    "weather": "Chuva leve",
-                    "mood": "tenso, suspeitas no ar"
-                }
-            },
-            "llm_configs": {
-                "openai": {
-                    "model": "gpt-4",
-                    "temperature": 0.7,
-                    "max_tokens": 1000,
-                    "use_case": "Narrativa principal e diálogos complexos"
-                },
-                "anthropic": {
-                    "model": "claude-3-sonnet",
-                    "temperature": 0.6,
-                    "max_tokens": 1000,
-                    "use_case": "Análise de regras e decisões éticas"
-                },
-                "google": {
-                    "model": "gemini-pro",
-                    "temperature": 0.8,
-                    "max_tokens": 800,
-                    "use_case": "Geração criativa e descrições ambientais"
-                },
-                "local": {
-                    "model": "llama3:8b",
-                    "temperature": 0.5,
-                    "max_tokens": 600,
-                    "use_case": "Backup offline e operações simples"
-                }
-            },
-            "system_status": {
-                "whatsapp_api": "online",
-                "llm_primary": "online",
-                "llm_fallback": "online",
-                "knowledge_base": "online",
-                "dice_system": "online"
-            },
-            "metrics": {
-                "messages_today": 127,
-                "active_sessions": 3,
-                "human_interventions": 2,
-                "dice_rolls": 45,
-                "avg_response_time": "1.2s"
-            }
-        };
+// =============================================================================
+// WhatsApp RPG GM - JavaScript Principal
+// =============================================================================
 
-        this.currentSection = 'dashboard';
-        this.chatMessages = [];
-        this.diceHistory = [];
-        this.activityFeed = [];
-        this.alerts = [];
-        this.transcript = [];
-        this.currentLLM = 'openai';
-        this.isManualMode = false;
+class WhatsAppRPGApp {
+    constructor() {
+        this.apiUrl = '/api';
+        this.wsUrl = `ws://${window.location.host}/ws`;
+        this.websocket = null;
+        this.currentTab = 'dashboard';
+        this.stats = {
+            activeSessions: 0,
+            totalPlayers: 0,
+            diceRolls: 0,
+            messagesToday: 0
+        };
 
         this.init();
     }
 
     init() {
-        this.setupNavigation();
-        this.setupDashboard();
-        this.setupWhatsApp();
-        this.setupGameState();
-        this.setupAIModule();
-        this.setupDiceSystem();
-        this.setupHITL();
-        this.setupSettings();
-        this.startRealTimeUpdates();
+        this.setupEventListeners();
+        this.connectWebSocket();
+        this.loadInitialData();
+        this.startPeriodicUpdates();
+
+        console.log('WhatsApp RPG GM inicializado');
     }
 
-    setupNavigation() {
-        const menuItems = document.querySelectorAll('.menu-item');
-        const sections = document.querySelectorAll('.content-section');
-
-        menuItems.forEach(item => {
-            item.addEventListener('click', () => {
-                const targetSection = item.dataset.section;
-                
-                // Update active menu item
-                menuItems.forEach(mi => mi.classList.remove('active'));
-                item.classList.add('active');
-                
-                // Update active section
-                sections.forEach(section => section.classList.remove('active'));
-                document.getElementById(targetSection).classList.add('active');
-                
-                this.currentSection = targetSection;
-                this.onSectionChange(targetSection);
+    setupEventListeners() {
+        // Tab navigation
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.switchTab(e.target.dataset.tab);
             });
         });
+
+        // Search functionality
+        const searchInput = document.getElementById('character-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchCharacters(e.target.value);
+            });
+        }
+
+        // Dice roller
+        const diceInput = document.getElementById('dice-expression');
+        if (diceInput) {
+            diceInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.rollDice();
+                }
+            });
+        }
+
+        // Log level filter
+        const logLevelSelect = document.getElementById('log-level');
+        if (logLevelSelect) {
+            logLevelSelect.addEventListener('change', (e) => {
+                this.filterLogs(e.target.value);
+            });
+        }
     }
 
-    onSectionChange(section) {
-        switch(section) {
-            case 'dashboard':
-                this.updateDashboard();
+    connectWebSocket() {
+        try {
+            this.websocket = new WebSocket(this.wsUrl);
+
+            this.websocket.onopen = () => {
+                console.log('WebSocket conectado');
+                this.updateConnectionStatus('api', true);
+            };
+
+            this.websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                this.handleWebSocketMessage(data);
+            };
+
+            this.websocket.onclose = () => {
+                console.log('WebSocket desconectado');
+                this.updateConnectionStatus('api', false);
+
+                // Reconectar após 5 segundos
+                setTimeout(() => {
+                    this.connectWebSocket();
+                }, 5000);
+            };
+
+            this.websocket.onerror = (error) => {
+                console.error('Erro no WebSocket:', error);
+                this.updateConnectionStatus('api', false);
+            };
+
+        } catch (error) {
+            console.error('Erro ao conectar WebSocket:', error);
+            this.updateConnectionStatus('api', false);
+        }
+    }
+
+    handleWebSocketMessage(data) {
+        switch (data.type) {
+            case 'stats_update':
+                this.updateStats(data.stats);
                 break;
-            case 'game-state':
-                this.updateGameState();
+            case 'new_activity':
+                this.addActivity(data.activity);
                 break;
-            case 'ai-module':
-                this.updateAIModule();
+            case 'session_update':
+                this.updateSession(data.session);
+                break;
+            case 'character_update':
+                this.updateCharacter(data.character);
+                break;
+            case 'system_status':
+                this.updateSystemStatus(data.status);
                 break;
         }
     }
 
-    setupDashboard() {
-        this.updateDashboard();
-        this.generateActivityFeed();
-    }
+    async loadInitialData() {
+        this.showLoading(true);
 
-    updateDashboard() {
-        // Update metrics
-        document.getElementById('messages-today').textContent = this.data.metrics.messages_today;
-        document.getElementById('active-sessions').textContent = this.data.metrics.active_sessions;
-        document.getElementById('human-interventions').textContent = this.data.metrics.human_interventions;
-        document.getElementById('dice-rolls').textContent = this.data.metrics.dice_rolls;
+        try {
+            // Carregar estatísticas
+            await this.loadStats();
 
-        // Update activity feed
-        this.renderActivityFeed();
-    }
-
-    generateActivityFeed() {
-        this.activityFeed = [
-            {
-                icon: '💬',
-                text: 'Nova mensagem de Aria Nightwhisper: "Vou investigar os rastros"',
-                time: '2 min atrás'
-            },
-            {
-                icon: '🎲',
-                text: 'Thorin rolou d20 para Investigação: 15 (Sucesso)',
-                time: '5 min atrás'
-            },
-            {
-                icon: '🤖',
-                text: 'IA interveio na conversa sobre regras de combate',
-                time: '8 min atrás'
-            },
-            {
-                icon: '👤',
-                text: 'Intervenção humana solicitada para decisão moral',
-                time: '12 min atrás'
-            },
-            {
-                icon: '⚔️',
-                text: 'Combate iniciado: Grupo vs Bandidos',
-                time: '15 min atrás'
+            // Carregar dados baseados na aba atual
+            switch (this.currentTab) {
+                case 'dashboard':
+                    await this.loadDashboardData();
+                    break;
+                case 'sessions':
+                    await this.loadSessions();
+                    break;
+                case 'characters':
+                    await this.loadCharacters();
+                    break;
+                case 'logs':
+                    await this.loadLogs();
+                    break;
             }
-        ];
+
+            // Verificar status do sistema
+            await this.checkSystemStatus();
+
+        } catch (error) {
+            console.error('Erro ao carregar dados iniciais:', error);
+            this.showNotification('Erro ao carregar dados', 'error');
+        } finally {
+            this.showLoading(false);
+        }
     }
 
-    renderActivityFeed() {
-        const feedContainer = document.getElementById('activity-feed');
-        feedContainer.innerHTML = this.activityFeed.map(activity => `
-            <div class="activity-item">
-                <div class="activity-icon">${activity.icon}</div>
+    async loadStats() {
+        try {
+            const response = await fetch(`${this.apiUrl}/stats`);
+            const stats = await response.json();
+            this.updateStats(stats);
+        } catch (error) {
+            console.error('Erro ao carregar estatísticas:', error);
+        }
+    }
+
+    async loadDashboardData() {
+        try {
+            const [statsResponse, activityResponse] = await Promise.all([
+                fetch(`${this.apiUrl}/stats`),
+                fetch(`${this.apiUrl}/activity/recent`)
+            ]);
+
+            const stats = await statsResponse.json();
+            const activities = await activityResponse.json();
+
+            this.updateStats(stats);
+            this.updateActivityList(activities);
+
+        } catch (error) {
+            console.error('Erro ao carregar dashboard:', error);
+        }
+    }
+
+    async loadSessions() {
+        try {
+            const response = await fetch(`${this.apiUrl}/sessions`);
+            const sessions = await response.json();
+            this.updateSessionsGrid(sessions);
+        } catch (error) {
+            console.error('Erro ao carregar sessões:', error);
+        }
+    }
+
+    async loadCharacters() {
+        try {
+            const response = await fetch(`${this.apiUrl}/characters`);
+            const characters = await response.json();
+            this.updateCharactersGrid(characters);
+        } catch (error) {
+            console.error('Erro ao carregar personagens:', error);
+        }
+    }
+
+    async loadLogs() {
+        try {
+            const response = await fetch(`${this.apiUrl}/logs`);
+            const logs = await response.json();
+            this.updateLogsContent(logs);
+        } catch (error) {
+            console.error('Erro ao carregar logs:', error);
+        }
+    }
+
+    async checkSystemStatus() {
+        try {
+            const response = await fetch('/health');
+            const status = await response.json();
+            this.updateSystemStatus(status);
+        } catch (error) {
+            console.error('Erro ao verificar status:', error);
+            this.updateConnectionStatus('api', false);
+        }
+    }
+
+    switchTab(tabName) {
+        // Atualizar botões
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Atualizar conteúdo
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(tabName).classList.add('active');
+
+        this.currentTab = tabName;
+
+        // Carregar dados específicos da aba
+        switch (tabName) {
+            case 'sessions':
+                this.loadSessions();
+                break;
+            case 'characters':
+                this.loadCharacters();
+                break;
+            case 'logs':
+                this.loadLogs();
+                break;
+        }
+    }
+
+    updateStats(stats) {
+        this.stats = { ...this.stats, ...stats };
+
+        // Atualizar elementos do DOM
+        this.updateElement('active-sessions', stats.activeSessions || 0);
+        this.updateElement('total-players', stats.totalPlayers || 0);
+        this.updateElement('dice-rolls', stats.diceRolls || 0);
+        this.updateElement('messages-today', stats.messagesToday || 0);
+    }
+
+    updateActivityList(activities) {
+        const list = document.getElementById('activity-list');
+        if (!list) return;
+
+        list.innerHTML = '';
+
+        activities.forEach(activity => {
+            const item = document.createElement('div');
+            item.className = 'activity-item';
+            item.innerHTML = `
+                <div class="activity-icon">
+                    <i class="fas ${this.getActivityIcon(activity.type)}"></i>
+                </div>
                 <div class="activity-content">
-                    <div class="activity-text">${activity.text}</div>
-                    <div class="activity-time">${activity.time}</div>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    setupWhatsApp() {
-        this.chatMessages = [
-            {
-                type: 'ai',
-                text: 'Olá! Sou seu GM AI Assistant. Como posso ajudar na sessão de hoje?',
-                time: '14:30'
-            },
-            {
-                type: 'user',
-                text: 'Quero investigar a taverna em busca de pistas sobre os comerciantes desaparecidos.',
-                time: '14:32'
-            },
-            {
-                type: 'ai',
-                text: 'Excelente! Role um teste de Investigação (d20 + modificador). Enquanto isso, você nota que o bartender Willem parece nervoso e evita contato visual.',
-                time: '14:33'
-            }
-        ];
-
-        this.renderChatMessages();
-        this.setupChatControls();
-    }
-
-    renderChatMessages() {
-        const messagesContainer = document.getElementById('chat-messages');
-        messagesContainer.innerHTML = this.chatMessages.map(message => `
-            <div class="message ${message.type}">
-                <div class="message-bubble">
-                    ${message.text}
-                    <div class="message-time">${message.time}</div>
-                </div>
-            </div>
-        `).join('');
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
-    setupChatControls() {
-        const sendButton = document.getElementById('send-message');
-        const messageInput = document.getElementById('message-input');
-        const actionButtons = document.querySelectorAll('.action-btn');
-
-        sendButton.addEventListener('click', () => {
-            const message = messageInput.value.trim();
-            if (message) {
-                this.sendMessage(message);
-                messageInput.value = '';
-            }
-        });
-
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendButton.click();
-            }
-        });
-
-        actionButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const action = btn.dataset.action;
-                this.handleQuickAction(action);
-            });
-        });
-    }
-
-    sendMessage(text) {
-        const currentTime = new Date().toLocaleTimeString('pt-BR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-
-        this.chatMessages.push({
-            type: 'user',
-            text: text,
-            time: currentTime
-        });
-
-        // Simulate AI response
-        setTimeout(() => {
-            const responses = [
-                'Interessante escolha! Role um d20 para ver o resultado.',
-                'O GM considera sua ação... Um momento.',
-                'Você sente que algo importante está para acontecer.',
-                'A tensão no ar aumenta conforme você age.',
-                'Role para Iniciativa, o combate está prestes a começar!'
-            ];
-            
-            const response = responses[Math.floor(Math.random() * responses.length)];
-            this.chatMessages.push({
-                type: 'ai',
-                text: response,
-                time: new Date().toLocaleTimeString('pt-BR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                })
-            });
-            
-            this.renderChatMessages();
-        }, 1000);
-
-        this.renderChatMessages();
-        this.updateMetrics('messages');
-    }
-
-    handleQuickAction(action) {
-        const actions = {
-            attack: '⚔️ Eu ataco!',
-            defend: '🛡️ Entro em posição defensiva.',
-            investigate: '🔍 Quero investigar o ambiente.',
-            talk: '💬 Tento conversar com os NPCs presentes.'
-        };
-
-        if (actions[action]) {
-            this.sendMessage(actions[action]);
-        }
-    }
-
-    setupGameState() {
-        this.updateGameState();
-    }
-
-    updateGameState() {
-        this.renderCharacters();
-        this.renderWorldState();
-        this.renderNPCs();
-    }
-
-    renderCharacters() {
-        const container = document.getElementById('characters-container');
-        container.innerHTML = this.data.characters.map(char => {
-            const hpPercentage = (char.hp.current / char.hp.max) * 100;
-            let hpClass = '';
-            if (hpPercentage < 25) hpClass = 'critical';
-            else if (hpPercentage < 75) hpClass = 'wounded';
-
-            return `
-                <div class="character-card">
-                    <div class="character-header">
-                        <div>
-                            <div class="character-name">${char.name}</div>
-                            <div class="character-class">${char.class} Nível ${char.level}</div>
-                        </div>
-                        <div class="status status--${char.status === 'healthy' ? 'success' : 'warning'}">
-                            ${char.status === 'healthy' ? 'Saudável' : 'Ferido'}
-                        </div>
-                    </div>
-                    
-                    <div class="hp-bar">
-                        <div class="hp-label">HP: ${char.hp.current}/${char.hp.max}</div>
-                        <div class="hp-progress">
-                            <div class="hp-fill ${hpClass}" style="width: ${hpPercentage}%"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <div class="stat-value">${char.stats.strength}</div>
-                            <div class="stat-name">FOR</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${char.stats.dexterity}</div>
-                            <div class="stat-name">DES</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${char.stats.constitution}</div>
-                            <div class="stat-name">CON</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${char.stats.intelligence}</div>
-                            <div class="stat-name">INT</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${char.stats.wisdom}</div>
-                            <div class="stat-name">SAB</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${char.stats.charisma}</div>
-                            <div class="stat-name">CAR</div>
-                        </div>
-                    </div>
-                    
-                    <div class="character-location">
-                        <strong>Localização:</strong> ${char.location}
-                    </div>
+                    <div class="activity-title">${activity.title}</div>
+                    <div class="activity-time">${this.formatTime(activity.timestamp)}</div>
                 </div>
             `;
-        }).join('');
+            list.appendChild(item);
+        });
     }
 
-    renderWorldState() {
-        const world = this.data.world_state;
-        document.getElementById('current-scene').textContent = world.current_scene;
-        document.getElementById('active-quest').textContent = world.active_quest;
-        document.getElementById('location').textContent = world.environment.location;
-        document.getElementById('environment').textContent = `${world.environment.time}, ${world.environment.weather}`;
-    }
+    updateSessionsGrid(sessions) {
+        const grid = document.getElementById('sessions-grid');
+        if (!grid) return;
 
-    renderNPCs() {
-        const container = document.getElementById('npcs-container');
-        container.innerHTML = this.data.world_state.npcs_present.map(npc => `
-            <div class="npc-card">
-                <div class="npc-name">${npc.name}</div>
-                <div class="npc-disposition">Disposição: ${npc.disposition}</div>
-                <div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 4px;">
-                    Sabe: ${npc.knows}
+        grid.innerHTML = '';
+
+        sessions.forEach(session => {
+            const card = document.createElement('div');
+            card.className = 'session-card';
+            card.innerHTML = `
+                <div class="session-header">
+                    <h3>${session.name || `Sessão ${session.id.substring(0, 8)}`}</h3>
+                    <span class="session-status ${session.state}">${this.translateState(session.state)}</span>
                 </div>
-            </div>
-        `).join('');
+                <div class="session-info">
+                    <p><i class="fas fa-users"></i> ${session.players.length} jogadores</p>
+                    <p><i class="fas fa-clock"></i> ${this.formatTime(session.lastActivity)}</p>
+                    <p><i class="fas fa-map-marker-alt"></i> ${session.currentScene}</p>
+                </div>
+                <div class="session-actions">
+                    <button onclick="app.viewSession('${session.id}')" class="btn btn-primary btn-sm">
+                        <i class="fas fa-eye"></i> Ver
+                    </button>
+                    <button onclick="app.pauseSession('${session.id}')" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-pause"></i> Pausar
+                    </button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
     }
 
-    setupAIModule() {
-        this.setupLLMTabs();
-        this.updateAIModule();
-        this.setupPromptTester();
+    updateCharactersGrid(characters) {
+        const grid = document.getElementById('characters-grid');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+
+        characters.forEach(character => {
+            const card = document.createElement('div');
+            card.className = 'character-card';
+            card.innerHTML = `
+                <div class="character-header">
+                    <h3>${character.name}</h3>
+                    <span class="character-level">Nível ${character.level}</span>
+                </div>
+                <div class="character-info">
+                    <p><strong>${character.race} ${character.characterClass}</strong></p>
+                    <div class="hp-bar">
+                        <div class="hp-fill" style="width: ${(character.hpCurrent / character.hpMax) * 100}%"></div>
+                        <span class="hp-text">${character.hpCurrent}/${character.hpMax} HP</span>
+                    </div>
+                    <p><i class="fas fa-shield-alt"></i> CA ${character.armorClass}</p>
+                </div>
+                <div class="character-actions">
+                    <button onclick="app.viewCharacter('${character.playerId}', '${character.sessionId}')" class="btn btn-primary btn-sm">
+                        <i class="fas fa-user"></i> Ver
+                    </button>
+                    <button onclick="app.editCharacter('${character.playerId}', '${character.sessionId}')" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
     }
 
-    setupLLMTabs() {
-        const tabs = document.querySelectorAll('.tab-btn');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                this.currentLLM = tab.dataset.llm;
-                this.updateLLMConfig();
+    updateLogsContent(logs) {
+        const content = document.getElementById('logs-content');
+        if (!content) return;
+
+        content.innerHTML = '';
+
+        logs.forEach(log => {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${log.level}`;
+            entry.innerHTML = `
+                <span class="log-timestamp">[${this.formatTime(log.timestamp)}]</span>
+                <span class="log-level">[${log.level.toUpperCase()}]</span>
+                <span class="log-message">${log.message}</span>
+            `;
+            content.appendChild(entry);
+        });
+
+        // Scroll para o final
+        content.scrollTop = content.scrollHeight;
+    }
+
+    updateSystemStatus(status) {
+        // Atualizar indicadores de status
+        this.updateConnectionStatus('api', status.services?.api === 'online');
+        this.updateConnectionStatus('whatsapp', status.services?.evolution_api === 'online');
+        this.updateConnectionStatus('db', status.services?.database === 'online');
+    }
+
+    updateConnectionStatus(service, isOnline) {
+        const element = document.getElementById(`${service}-status`);
+        if (!element) return;
+
+        element.classList.remove('online', 'offline');
+        element.classList.add(isOnline ? 'online' : 'offline');
+    }
+
+    async rollDice() {
+        const expression = document.getElementById('dice-expression').value;
+        const advantageType = document.getElementById('advantage-type').value;
+
+        if (!expression) {
+            this.showNotification('Digite uma expressão de dados', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiUrl}/dice/roll`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    expression: expression,
+                    advantage: advantageType
+                })
             });
-        });
-    }
 
-    updateAIModule() {
-        this.updateLLMConfig();
-    }
+            const result = await response.json();
+            this.displayDiceResult(result);
 
-    updateLLMConfig() {
-        const config = this.data.llm_configs[this.currentLLM];
-        const container = document.getElementById('llm-config');
-        
-        container.innerHTML = `
-            <div class="config-item">
-                <label class="config-label">Modelo: ${config.model}</label>
-            </div>
-            <div class="config-item">
-                <label class="config-label">Caso de Uso:</label>
-                <div style="font-size: 14px; color: var(--color-text-secondary);">
-                    ${config.use_case}
-                </div>
-            </div>
-            <div class="config-item">
-                <label class="config-label">Temperatura: <span id="temp-value">${config.temperature}</span></label>
-                <div class="slider-container">
-                    <input type="range" class="slider" id="temperature-slider" 
-                           min="0" max="1" step="0.1" value="${config.temperature}">
-                </div>
-            </div>
-            <div class="config-item">
-                <label class="config-label">Max Tokens: <span id="tokens-value">${config.max_tokens}</span></label>
-                <div class="slider-container">
-                    <input type="range" class="slider" id="tokens-slider" 
-                           min="100" max="2000" step="50" value="${config.max_tokens}">
-                </div>
-            </div>
-        `;
-
-        // Setup sliders
-        const tempSlider = document.getElementById('temperature-slider');
-        const tokensSlider = document.getElementById('tokens-slider');
-        
-        tempSlider.addEventListener('input', (e) => {
-            document.getElementById('temp-value').textContent = e.target.value;
-            this.data.llm_configs[this.currentLLM].temperature = parseFloat(e.target.value);
-        });
-        
-        tokensSlider.addEventListener('input', (e) => {
-            document.getElementById('tokens-value').textContent = e.target.value;
-            this.data.llm_configs[this.currentLLM].max_tokens = parseInt(e.target.value);
-        });
-    }
-
-    setupPromptTester() {
-        const testButton = document.getElementById('test-llm');
-        testButton.addEventListener('click', () => {
-            const prompt = document.getElementById('test-prompt').value.trim();
-            if (prompt) {
-                this.testLLM(prompt);
-            }
-        });
-    }
-
-    testLLM(prompt) {
-        const resultContainer = document.getElementById('test-result');
-        const resultContent = resultContainer.querySelector('.result-content');
-        
-        resultContainer.style.display = 'block';
-        resultContent.textContent = 'Processando...';
-        
-        // Simulate LLM response
-        setTimeout(() => {
-            const responses = [
-                'Como seu GM AI, interpreto que você deseja explorar mais profundamente a taverna. O ambiente está carregado de tensão...',
-                'Baseado no contexto atual, sugiro que o personagem role um teste de Percepção para notar detalhes importantes.',
-                'A narrativa aponta para um momento crucial. Os NPCs presentes parecem esconder algo importante.',
-                'Analisando as regras de D&D 5e, esta situação requer cuidado especial com as mecânicas de investigação.'
-            ];
-            
-            const response = responses[Math.floor(Math.random() * responses.length)];
-            resultContent.textContent = `[${this.data.llm_configs[this.currentLLM].model}] ${response}`;
-        }, 2000);
-    }
-
-    setupDiceSystem() {
-        this.setupDiceButtons();
-        this.setupCustomRoll();
-        this.setupDCCalculator();
-        this.renderDiceHistory();
-    }
-
-    setupDiceButtons() {
-        const diceButtons = document.querySelectorAll('.dice-btn');
-        diceButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const sides = parseInt(btn.dataset.sides);
-                this.rollDice(1, sides);
-            });
-        });
-    }
-
-    setupCustomRoll() {
-        const rollButton = document.getElementById('roll-custom');
-        const customInput = document.getElementById('custom-dice');
-        
-        rollButton.addEventListener('click', () => {
-            const diceString = customInput.value.trim();
-            if (diceString) {
-                this.parseAndRollCustom(diceString);
-            }
-        });
-        
-        customInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                rollButton.click();
-            }
-        });
-    }
-
-    setupDCCalculator() {
-        const rollDCButton = document.getElementById('roll-dc');
-        rollDCButton.addEventListener('click', () => {
-            const dc = parseInt(document.getElementById('dc-value').value);
-            if (dc && dc >= 1 && dc <= 30) {
-                this.rollDC(dc);
-            }
-        });
-    }
-
-    rollDice(quantity, sides, modifier = 0) {
-        const rolls = [];
-        for (let i = 0; i < quantity; i++) {
-            rolls.push(Math.floor(Math.random() * sides) + 1);
-        }
-        
-        const total = rolls.reduce((sum, roll) => sum + roll, 0) + modifier;
-        
-        const result = {
-            dice: `${quantity}d${sides}${modifier ? (modifier > 0 ? `+${modifier}` : `${modifier}`) : ''}`,
-            rolls: rolls,
-            modifier: modifier,
-            total: total,
-            timestamp: new Date().toLocaleTimeString('pt-BR')
-        };
-        
-        this.diceHistory.unshift(result);
-        if (this.diceHistory.length > 20) {
-            this.diceHistory = this.diceHistory.slice(0, 20);
-        }
-        
-        this.displayDiceResult(result);
-        this.renderDiceHistory();
-        this.updateMetrics('dice');
-    }
-
-    parseAndRollCustom(diceString) {
-        // Simple parser for dice notation like "2d6+3" or "1d20-1"
-        const match = diceString.match(/(\d+)d(\d+)([+-]\d+)?/i);
-        if (match) {
-            const quantity = parseInt(match[1]);
-            const sides = parseInt(match[2]);
-            const modifier = match[3] ? parseInt(match[3]) : 0;
-            this.rollDice(quantity, sides, modifier);
+        } catch (error) {
+            console.error('Erro ao rolar dados:', error);
+            this.showNotification('Erro ao rolar dados', 'error');
         }
     }
 
-    rollDC(dc) {
-        const roll = Math.floor(Math.random() * 20) + 1;
-        const success = roll >= dc;
-        
-        const result = {
-            dice: `d20 vs DC ${dc}`,
-            rolls: [roll],
-            modifier: 0,
-            total: roll,
-            dc: dc,
-            success: success,
-            timestamp: new Date().toLocaleTimeString('pt-BR')
-        };
-        
-        this.diceHistory.unshift(result);
-        this.displayDiceResult(result);
-        this.renderDiceHistory();
-        this.updateMetrics('dice');
+    quickRoll(expression) {
+        document.getElementById('dice-expression').value = expression;
+        this.rollDice();
     }
 
     displayDiceResult(result) {
-        const container = document.getElementById('current-result');
-        const isSuccess = result.dc !== undefined;
-        
-        container.innerHTML = `
-            <div class="result-display" style="color: ${isSuccess ? (result.success ? 'var(--color-success)' : 'var(--color-error)') : 'var(--color-primary)'}">
-                ${result.total}
-            </div>
-            <div class="result-details">
-                ${result.dice} = [${result.rolls.join(', ')}]${result.modifier ? ` ${result.modifier > 0 ? '+' : ''}${result.modifier}` : ''}
-                ${isSuccess ? `<br><strong>${result.success ? 'SUCESSO' : 'FALHA'}</strong>` : ''}
+        const resultDiv = document.getElementById('dice-result');
+        if (!resultDiv) return;
+
+        resultDiv.classList.add('has-result');
+        resultDiv.innerHTML = `
+            <div class="dice-result-content">
+                <div class="result-expression">${result.expression}</div>
+                <div class="result-total ${result.isCritical ? 'critical' : ''} ${result.isFumble ? 'fumble' : ''}">${result.total}</div>
+                <div class="result-rolls">${result.rolls}</div>
+                ${result.isCritical ? '<div class="result-special">CRÍTICO! 🎯</div>' : ''}
+                ${result.isFumble ? '<div class="result-special">FALHA CRÍTICA! 💀</div>' : ''}
             </div>
         `;
     }
 
-    renderDiceHistory() {
-        const container = document.getElementById('dice-history');
-        container.innerHTML = this.diceHistory.map(roll => `
-            <div class="history-item">
-                <div>
-                    <div class="history-roll">${roll.dice}</div>
-                    <div style="font-size: 11px; color: var(--color-text-secondary);">${roll.timestamp}</div>
-                </div>
-                <div class="history-result" style="color: ${roll.dc !== undefined ? (roll.success ? 'var(--color-success)' : 'var(--color-error)') : 'var(--color-primary)'}">
-                    ${roll.total}${roll.dc !== undefined ? (roll.success ? ' ✓' : ' ✗') : ''}
-                </div>
-            </div>
-        `).join('');
-    }
-
-    setupHITL() {
-        this.generateAlerts();
-        this.setupModeToggle();
-        this.setupTranscript();
-        this.renderAlerts();
-        this.renderTranscript();
-    }
-
-    generateAlerts() {
-        this.alerts = [
-            {
-                type: 'warning',
-                title: 'Decisão Moral Complexa',
-                description: 'Jogador quer torturar NPC para obter informações. Intervenção recomendada.',
-                timestamp: '2 min atrás'
-            },
-            {
-                type: 'critical',
-                title: 'Conflito de Regras',
-                description: 'Disputa sobre mecânicas de combate. Arbitragem necessária.',
-                timestamp: '5 min atrás'
-            }
-        ];
-    }
-
-    renderAlerts() {
-        const container = document.getElementById('alerts-container');
-        container.innerHTML = this.alerts.map(alert => `
-            <div class="alert-item alert-${alert.type}">
-                <div class="alert-icon">${alert.type === 'critical' ? '🚨' : '⚠️'}</div>
-                <div class="alert-content">
-                    <div class="alert-title">${alert.title}</div>
-                    <div class="alert-description">${alert.description}</div>
-                    <div class="alert-actions">
-                        <button class="btn btn--sm btn--primary">Intervir</button>
-                        <button class="btn btn--sm btn--secondary">Ignorar</button>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    setupModeToggle() {
-        const autoModeBtn = document.getElementById('auto-mode');
-        const manualModeBtn = document.getElementById('manual-mode');
-        const manualResponse = document.getElementById('manual-response');
-        const sendManualBtn = document.getElementById('send-manual');
-
-        autoModeBtn.addEventListener('click', () => {
-            this.isManualMode = false;
-            autoModeBtn.classList.add('active');
-            autoModeBtn.classList.remove('btn--outline');
-            autoModeBtn.classList.add('btn--secondary');
-            manualModeBtn.classList.remove('active');
-            manualModeBtn.classList.add('btn--outline');
-            manualModeBtn.classList.remove('btn--secondary');
-            manualResponse.style.display = 'none';
-        });
-
-        manualModeBtn.addEventListener('click', () => {
-            this.isManualMode = true;
-            manualModeBtn.classList.add('active');
-            manualModeBtn.classList.remove('btn--outline');
-            manualModeBtn.classList.add('btn--secondary');
-            autoModeBtn.classList.remove('active');
-            autoModeBtn.classList.add('btn--outline');
-            autoModeBtn.classList.remove('btn--secondary');
-            manualResponse.style.display = 'block';
-        });
-
-        sendManualBtn.addEventListener('click', () => {
-            const response = document.getElementById('gm-response').value.trim();
-            if (response) {
-                this.addToTranscript('GM (Manual)', response);
-                document.getElementById('gm-response').value = '';
-                this.updateMetrics('interventions');
-            }
+    searchCharacters(query) {
+        const cards = document.querySelectorAll('.character-card');
+        cards.forEach(card => {
+            const name = card.querySelector('h3').textContent.toLowerCase();
+            const visible = name.includes(query.toLowerCase());
+            card.style.display = visible ? 'block' : 'none';
         });
     }
 
-    setupTranscript() {
-        this.transcript = [
-            {
-                speaker: 'Aria',
-                text: 'Quero investigar os comerciantes desaparecidos.',
-                timestamp: '14:25'
-            },
-            {
-                speaker: 'GM AI',
-                text: 'Role um teste de Investigação.',
-                timestamp: '14:26'
-            },
-            {
-                speaker: 'Thorin',
-                text: 'Vou ajudar na investigação.',
-                timestamp: '14:27'
-            },
-            {
-                speaker: 'GM (Manual)',
-                text: 'Vocês notam pegadas suspeitas perto da entrada.',
-                timestamp: '14:28'
-            }
-        ];
-    }
-
-    addToTranscript(speaker, text) {
-        this.transcript.push({
-            speaker: speaker,
-            text: text,
-            timestamp: new Date().toLocaleTimeString('pt-BR', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            })
+    filterLogs(level) {
+        const entries = document.querySelectorAll('.log-entry');
+        entries.forEach(entry => {
+            const visible = level === 'all' || entry.classList.contains(level);
+            entry.style.display = visible ? 'block' : 'none';
         });
-        this.renderTranscript();
     }
 
-    renderTranscript() {
-        const container = document.getElementById('transcript-container');
-        container.innerHTML = this.transcript.map(entry => `
-            <div class="transcript-entry">
-                <div class="transcript-timestamp">${entry.timestamp}</div>
-                <div>
-                    <span class="transcript-speaker">${entry.speaker}:</span>
-                    <span class="transcript-text">${entry.text}</span>
-                </div>
-            </div>
-        `).join('');
-        container.scrollTop = container.scrollHeight;
-    }
-
-    setupSettings() {
-        // Settings are mostly display-only for this demo
-        console.log('Settings initialized');
-    }
-
-    updateMetrics(type) {
-        switch(type) {
-            case 'messages':
-                this.data.metrics.messages_today++;
-                document.getElementById('messages-today').textContent = this.data.metrics.messages_today;
-                break;
-            case 'dice':
-                this.data.metrics.dice_rolls++;
-                document.getElementById('dice-rolls').textContent = this.data.metrics.dice_rolls;
-                break;
-            case 'interventions':
-                this.data.metrics.human_interventions++;
-                document.getElementById('human-interventions').textContent = this.data.metrics.human_interventions;
-                break;
+    // Utility methods
+    updateElement(id, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
         }
     }
 
-    startRealTimeUpdates() {
-        // Simulate real-time updates
+    formatTime(timestamp) {
+        return new Date(timestamp).toLocaleString('pt-BR');
+    }
+
+    getActivityIcon(type) {
+        const icons = {
+            'message': 'fa-comment',
+            'dice_roll': 'fa-dice',
+            'character_created': 'fa-user-plus',
+            'session_started': 'fa-play',
+            'session_ended': 'fa-stop',
+            'combat_started': 'fa-sword',
+            'error': 'fa-exclamation-triangle'
+        };
+        return icons[type] || 'fa-info-circle';
+    }
+
+    translateState(state) {
+        const translations = {
+            'active': 'Ativa',
+            'inactive': 'Inativa',
+            'paused': 'Pausada',
+            'combat': 'Em Combate',
+            'exploration': 'Explorando',
+            'social': 'Interação Social',
+            'waiting_gm': 'Aguardando GM'
+        };
+        return translations[state] || state;
+    }
+
+    showLoading(show) {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.classList.toggle('show', show);
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Criar notificação toast
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <i class="fas ${this.getNotificationIcon(type)}"></i>
+            <span>${message}</span>
+        `;
+
+        document.body.appendChild(toast);
+
+        // Animar entrada
+        setTimeout(() => toast.classList.add('show'), 100);
+
+        // Remover após 3 segundos
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => document.body.removeChild(toast), 300);
+        }, 3000);
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            'success': 'fa-check-circle',
+            'error': 'fa-exclamation-circle',
+            'warning': 'fa-exclamation-triangle',
+            'info': 'fa-info-circle'
+        };
+        return icons[type] || 'fa-info-circle';
+    }
+
+    startPeriodicUpdates() {
+        // Atualizar estatísticas a cada 30 segundos
         setInterval(() => {
-            if (Math.random() < 0.1) { // 10% chance every 5 seconds
-                this.simulateActivity();
+            if (this.currentTab === 'dashboard') {
+                this.loadStats();
             }
-        }, 5000);
+        }, 30000);
+
+        // Verificar status do sistema a cada minuto
+        setInterval(() => {
+            this.checkSystemStatus();
+        }, 60000);
     }
 
-    simulateActivity() {
-        const activities = [
-            {
-                icon: '💬',
-                text: 'Nova mensagem recebida no sistema',
-                time: 'agora'
-            },
-            {
-                icon: '🎲',
-                text: 'Rolagem automática de dados detectada',
-                time: 'agora'
-            },
-            {
-                icon: '🤖',
-                text: 'IA processou nova consulta',
-                time: 'agora'
+    // Métodos para ações do GM
+    async sendGlobalMessage() {
+        const message = prompt('Digite o anúncio global:');
+        if (!message) return;
+
+        try {
+            await fetch(`${this.apiUrl}/gm/announce`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+
+            this.showNotification('Anúncio enviado com sucesso', 'success');
+        } catch (error) {
+            this.showNotification('Erro ao enviar anúncio', 'error');
+        }
+    }
+
+    async pauseAllSessions() {
+        if (!confirm('Tem certeza que deseja pausar todas as sessões?')) return;
+
+        try {
+            await fetch(`${this.apiUrl}/gm/pause-all`, { method: 'POST' });
+            this.showNotification('Todas as sessões foram pausadas', 'success');
+            this.loadSessions();
+        } catch (error) {
+            this.showNotification('Erro ao pausar sessões', 'error');
+        }
+    }
+
+    async backupData() {
+        try {
+            const response = await fetch(`${this.apiUrl}/gm/backup`, { method: 'POST' });
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification('Backup criado com sucesso', 'success');
+            } else {
+                this.showNotification('Erro ao criar backup', 'error');
             }
-        ];
-
-        const newActivity = activities[Math.floor(Math.random() * activities.length)];
-        this.activityFeed.unshift(newActivity);
-        
-        if (this.activityFeed.length > 10) {
-            this.activityFeed = this.activityFeed.slice(0, 10);
+        } catch (error) {
+            this.showNotification('Erro ao criar backup', 'error');
         }
+    }
 
-        if (this.currentSection === 'dashboard') {
-            this.renderActivityFeed();
-        }
+    refreshLogs() {
+        this.loadLogs();
+    }
+
+    viewLogs() {
+        this.switchTab('logs');
     }
 }
 
-// Initialize the application when DOM is loaded
+// Funções globais para eventos onclick
+function sendGlobalMessage() { app.sendGlobalMessage(); }
+function pauseAllSessions() { app.pauseAllSessions(); }
+function backupData() { app.backupData(); }
+function viewLogs() { app.viewLogs(); }
+function rollDice() { app.rollDice(); }
+function quickRoll(expr) { app.quickRoll(expr); }
+function refreshLogs() { app.refreshLogs(); }
+
+// Inicializar aplicação quando DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
-    window.rpgDashboard = new RPGDashboard();
+    window.app = new WhatsAppRPGApp();
 });
+
+// Adicionar estilos para notificações toast
+const toastStyles = `
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    z-index: 1000;
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+    min-width: 300px;
+    box-shadow: var(--shadow-lg);
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast.toast-success {
+    border-left: 4px solid var(--success-color);
+}
+
+.toast.toast-error {
+    border-left: 4px solid var(--danger-color);
+}
+
+.toast.toast-warning {
+    border-left: 4px solid var(--warning-color);
+}
+
+.toast.toast-info {
+    border-left: 4px solid var(--accent-color);
+}
+`;
+
+// Adicionar estilos ao head
+const styleSheet = document.createElement('style');
+styleSheet.textContent = toastStyles;
+document.head.appendChild(styleSheet);

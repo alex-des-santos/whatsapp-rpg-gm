@@ -1,1 +1,0 @@
-# WhatsApp - Módulo de integração com WhatsApp

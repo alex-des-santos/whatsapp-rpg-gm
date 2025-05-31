@@ -1,0 +1,53 @@
+[
+  {
+    "name": "Thorin Machado de Ferro",
+    "race": "anao",
+    "character_class": "guerreiro",
+    "level": 3,
+    "hp_current": 28,
+    "hp_max": 32,
+    "armor_class": 16,
+    "strength": 16,
+    "dexterity": 12,
+    "constitution": 15,
+    "intelligence": 10,
+    "wisdom": 13,
+    "charisma": 8,
+    "background": "Soldado",
+    "alignment": "Leal e Bom",
+    "equipment": [
+      {"name": "Martelo de Guerra", "type": "weapon", "equipped": true},
+      {"name": "Cota de Malha", "type": "armor", "equipped": true},
+      {"name": "Escudo", "type": "armor", "equipped": true}
+    ],
+    "proficiencies": ["athletics", "intimidation", "smiths_tools"]
+  },
+  {
+    "name": "Luna Luaverde",
+    "race": "elfo",
+    "character_class": "mago",
+    "level": 3,
+    "hp_current": 18,
+    "hp_max": 18,
+    "armor_class": 12,
+    "strength": 8,
+    "dexterity": 14,
+    "constitution": 12,
+    "intelligence": 17,
+    "wisdom": 15,
+    "charisma": 11,
+    "background": "Erudito",
+    "alignment": "Neutro e Bom",
+    "equipment": [
+      {"name": "Cajado Arcano", "type": "weapon", "equipped": true},
+      {"name": "Túnica de Mago", "type": "armor", "equipped": true},
+      {"name": "Grimório", "type": "item", "equipped": false}
+    ],
+    "spells_known": [
+      {"name": "Mísseis Mágicos", "level": 1, "prepared": true},
+      {"name": "Escudo", "level": 1, "prepared": true},
+      {"name": "Detectar Magia", "level": 1, "prepared": true}
+    ],
+    "proficiencies": ["arcana", "investigation", "history"]
+  }
+]

@@ -1,1 +1,1 @@
-# Core - Módulo central do sistema
+"""Módulo core do WhatsApp RPG GM"""
