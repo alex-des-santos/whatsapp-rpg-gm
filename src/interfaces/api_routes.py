@@ -3,28 +3,46 @@ API Routes - Rotas da API REST
 Endpoints para gerenciamento do sistema RPG
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, BackgroundTasks # Depends removed
+# JSONResponse removed
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+# typing imports removed
 import logging
 
-from ..core.database import get_async_session, get_redis
-from ..core.game_manager import GameManager
+# core.database imports removed
+# core.game_manager import removed
 from ..rpg.dice_system import DiceSystem, AdvantageType
+from ..core.config import settings # For GM_API_KEY
+from fastapi import Header, Depends, Request # Added Depends and Request
+from main import limiter # Import limiter from main
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Dependency for GM API Key Check
+async def verify_gm_api_key(x_gm_api_key: str = Header(None)):
+    if not settings.GM_API_KEY:
+        logger.warning("GM_API_KEY not set. GM endpoints are unprotected.")
+        # Allow access if GM_API_KEY is not set, but log a warning.
+        # For production, you might want to deny access if the key isn't set.
+        return
+    if not x_gm_api_key:
+        raise HTTPException(status_code=401, detail="Not authenticated: X-GM-API-Key header missing.")
+    if x_gm_api_key != settings.GM_API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid GM API Key.")
+
 
 # Models para requests
 class DiceRollRequest(BaseModel):
     expression: str
     advantage: str = "normal"
 
+
 class MessageRequest(BaseModel):
     chat_id: str
     message: str
+
 
 class CharacterCreateRequest(BaseModel):
     name: str
@@ -32,6 +50,7 @@ class CharacterCreateRequest(BaseModel):
     character_class: str
     player_id: str
     session_id: str
+
 
 # =============================================================================
 # Health Check
@@ -42,8 +61,9 @@ async def health_check():
     return {
         "status": "healthy",
         "version": "1.0.0",
-        "timestamp": "2024-01-01T00:00:00Z"
+        "timestamp": "2024-01-01T00:00:00Z",
     }
+
 
 @router.get("/status")
 async def system_status():
@@ -52,15 +72,16 @@ async def system_status():
         # Aqui você verificaria o status real dos serviços
         return {
             "api": "online",
-            "database": "online", 
+            "database": "online",
             "redis": "online",
             "evolution_api": "checking...",
             "active_sessions": 0,
-            "total_players": 0
+            "total_players": 0,
         }
     except Exception as e:
         logger.error(f"Erro ao obter status: {e}")
         raise HTTPException(status_code=500, detail="Erro interno")
+
 
 # =============================================================================
 # Statistics
@@ -76,17 +97,19 @@ async def get_statistics():
             "dice_rolls": 127,
             "messages_today": 245,
             "characters_created": 12,
-            "hitl_triggers": 2
+            "hitl_triggers": 2,
         }
     except Exception as e:
         logger.error(f"Erro ao obter estatísticas: {e}")
         raise HTTPException(status_code=500, detail="Erro ao obter estatísticas")
 
+
 # =============================================================================
 # Dice Rolling
 # =============================================================================
 @router.post("/dice/roll")
-async def roll_dice(request: DiceRollRequest):
+@limiter.limit(settings.RATE_LIMIT_STRING)
+async def roll_dice(request: DiceRollRequest, fastapi_request: Request): # Added fastapi_request
     """Rolar dados"""
     try:
         dice_system = DiceSystem()
@@ -95,7 +118,7 @@ async def roll_dice(request: DiceRollRequest):
         advantage_map = {
             "normal": AdvantageType.NORMAL,
             "advantage": AdvantageType.ADVANTAGE,
-            "disadvantage": AdvantageType.DISADVANTAGE
+            "disadvantage": AdvantageType.DISADVANTAGE,
         }
 
         advantage = advantage_map.get(request.advantage, AdvantageType.NORMAL)
@@ -108,7 +131,7 @@ async def roll_dice(request: DiceRollRequest):
             "modifiers": result.modifiers,
             "is_critical": result.is_critical,
             "is_fumble": result.is_fumble,
-            "advantage_type": result.advantage_type.value
+            "advantage_type": result.advantage_type.value,
         }
 
     except ValueError as e:
@@ -117,6 +140,7 @@ async def roll_dice(request: DiceRollRequest):
         logger.error(f"Erro na rolagem: {e}")
         raise HTTPException(status_code=500, detail="Erro na rolagem de dados")
 
+
 @router.get("/dice/presets")
 async def get_dice_presets():
     """Obter presets de dados"""
@@ -124,14 +148,16 @@ async def get_dice_presets():
         "basic": ["1d4", "1d6", "1d8", "1d10", "1d12", "1d20", "1d100"],
         "combat": ["1d20", "1d8+3", "2d6", "1d4+1"],
         "abilities": ["4d6k3", "3d6", "2d6+6"],
-        "saves": ["1d20+2", "1d20+5", "1d20+8"]
+        "saves": ["1d20+2", "1d20+5", "1d20+8"],
     }
+
 
 # =============================================================================
 # Sessions Management
 # =============================================================================
 @router.get("/sessions")
-async def get_sessions():
+@limiter.limit(settings.RATE_LIMIT_STRING)
+async def get_sessions(fastapi_request: Request): # Added fastapi_request
     """Obter lista de sessões"""
     try:
         # Mock data - em produção, viria do GameManager
@@ -143,21 +169,22 @@ async def get_sessions():
                 "players": ["player1", "player2", "player3"],
                 "current_scene": "Vila de Barovia",
                 "last_activity": "2024-01-01T12:00:00Z",
-                "created_at": "2024-01-01T10:00:00Z"
+                "created_at": "2024-01-01T10:00:00Z",
             },
             {
-                "id": "session_002", 
+                "id": "session_002",
                 "name": "Waterdeep: Heist do Dragão",
                 "state": "paused",
                 "players": ["player4", "player5"],
                 "current_scene": "Taverna Yawning Portal",
                 "last_activity": "2024-01-01T11:30:00Z",
-                "created_at": "2024-01-01T09:00:00Z"
-            }
+                "created_at": "2024-01-01T09:00:00Z",
+            },
         ]
     except Exception as e:
         logger.error(f"Erro ao obter sessões: {e}")
         raise HTTPException(status_code=500, detail="Erro ao obter sessões")
+
 
 @router.get("/sessions/{session_id}")
 async def get_session(session_id: str):
@@ -173,14 +200,15 @@ async def get_session(session_id: str):
             "world_state": {
                 "location": "Estrada do Norte",
                 "weather": "chuva leve",
-                "time_of_day": "noite"
+                "time_of_day": "noite",
             },
             "combat_state": None,
-            "last_activity": "2024-01-01T12:00:00Z"
+            "last_activity": "2024-01-01T12:00:00Z",
         }
     except Exception as e:
         logger.error(f"Erro ao obter sessão: {e}")
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
+
 
 # =============================================================================
 # Characters Management
@@ -196,7 +224,7 @@ async def get_characters():
                 "session_id": "session_001",
                 "name": "Thorin Machado de Ferro",
                 "race": "anao",
-                "character_class": "guerreiro", 
+                "character_class": "guerreiro",
                 "level": 3,
                 "hp_current": 28,
                 "hp_max": 32,
@@ -206,7 +234,7 @@ async def get_characters():
                 "constitution": 15,
                 "intelligence": 10,
                 "wisdom": 13,
-                "charisma": 8
+                "charisma": 8,
             },
             {
                 "player_id": "player2",
@@ -223,12 +251,13 @@ async def get_characters():
                 "constitution": 12,
                 "intelligence": 17,
                 "wisdom": 15,
-                "charisma": 11
-            }
+                "charisma": 11,
+            },
         ]
     except Exception as e:
         logger.error(f"Erro ao obter personagens: {e}")
         raise HTTPException(status_code=500, detail="Erro ao obter personagens")
+
 
 @router.get("/characters/{player_id}/{session_id}")
 async def get_character(player_id: str, session_id: str):
@@ -247,14 +276,15 @@ async def get_character(player_id: str, session_id: str):
             "armor_class": 14,
             "equipment": [
                 {"name": "Espada Longa", "type": "weapon", "equipped": True},
-                {"name": "Armadura de Couro", "type": "armor", "equipped": True}
+                {"name": "Armadura de Couro", "type": "armor", "equipped": True},
             ],
             "spells_known": [],
-            "proficiencies": ["athletics", "intimidation"]
+            "proficiencies": ["athletics", "intimidation"],
         }
     except Exception as e:
         logger.error(f"Erro ao obter personagem: {e}")
         raise HTTPException(status_code=404, detail="Personagem não encontrado")
+
 
 # =============================================================================
 # Activity & Logs
@@ -267,22 +297,23 @@ async def get_recent_activity():
             {
                 "type": "dice_roll",
                 "title": "João rolou 1d20+5 = 18",
-                "timestamp": "2024-01-01T12:00:00Z"
+                "timestamp": "2024-01-01T12:00:00Z",
             },
             {
                 "type": "character_created",
                 "title": "Maria criou novo personagem: Elara",
-                "timestamp": "2024-01-01T11:45:00Z"
+                "timestamp": "2024-01-01T11:45:00Z",
             },
             {
                 "type": "session_started",
                 "title": "Nova sessão iniciada: A Tumba da Aniquilação",
-                "timestamp": "2024-01-01T11:30:00Z"
-            }
+                "timestamp": "2024-01-01T11:30:00Z",
+            },
         ]
     except Exception as e:
         logger.error(f"Erro ao obter atividade: {e}")
         raise HTTPException(status_code=500, detail="Erro ao obter atividade")
+
 
 @router.get("/logs")
 async def get_logs(level: str = "all", limit: int = 100):
@@ -293,23 +324,23 @@ async def get_logs(level: str = "all", limit: int = 100):
             {
                 "level": "info",
                 "message": "Sistema iniciado com sucesso",
-                "timestamp": "2024-01-01T10:00:00Z"
+                "timestamp": "2024-01-01T10:00:00Z",
             },
             {
-                "level": "info", 
+                "level": "info",
                 "message": "Nova sessão criada: session_001",
-                "timestamp": "2024-01-01T10:05:00Z"
+                "timestamp": "2024-01-01T10:05:00Z",
             },
             {
                 "level": "warning",
                 "message": "Conexão com Evolution API instável",
-                "timestamp": "2024-01-01T11:00:00Z"
+                "timestamp": "2024-01-01T11:00:00Z",
             },
             {
                 "level": "error",
                 "message": "Falha ao processar mensagem do usuário player3",
-                "timestamp": "2024-01-01T11:30:00Z"
-            }
+                "timestamp": "2024-01-01T11:30:00Z",
+            },
         ]
 
         # Filtrar por nível se especificado
@@ -322,10 +353,11 @@ async def get_logs(level: str = "all", limit: int = 100):
         logger.error(f"Erro ao obter logs: {e}")
         raise HTTPException(status_code=500, detail="Erro ao obter logs")
 
+
 # =============================================================================
 # GM Commands
 # =============================================================================
-@router.post("/gm/announce")
+@router.post("/gm/announce", dependencies=[Depends(verify_gm_api_key)])
 async def send_global_announcement(request: MessageRequest):
     """Enviar anúncio global"""
     try:
@@ -337,7 +369,8 @@ async def send_global_announcement(request: MessageRequest):
         logger.error(f"Erro ao enviar anúncio: {e}")
         raise HTTPException(status_code=500, detail="Erro ao enviar anúncio")
 
-@router.post("/gm/pause-all")
+
+@router.post("/gm/pause-all", dependencies=[Depends(verify_gm_api_key)])
 async def pause_all_sessions():
     """Pausar todas as sessões"""
     try:
@@ -349,7 +382,8 @@ async def pause_all_sessions():
         logger.error(f"Erro ao pausar sessões: {e}")
         raise HTTPException(status_code=500, detail="Erro ao pausar sessões")
 
-@router.post("/gm/backup")
+
+@router.post("/gm/backup", dependencies=[Depends(verify_gm_api_key)])
 async def create_backup(background_tasks: BackgroundTasks):
     """Criar backup do sistema"""
     try:
@@ -361,6 +395,7 @@ async def create_backup(background_tasks: BackgroundTasks):
         logger.error(f"Erro ao iniciar backup: {e}")
         raise HTTPException(status_code=500, detail="Erro ao iniciar backup")
 
+
 async def perform_backup():
     """Executar backup em background"""
     try:
@@ -368,6 +403,7 @@ async def perform_backup():
         logger.info("Backup concluído com sucesso")
     except Exception as e:
         logger.error(f"Erro no backup: {e}")
+
 
 # =============================================================================
 # HITL Management
@@ -385,12 +421,13 @@ async def get_pending_interventions():
                 "message": "Quero fazer algo que não está nas regras",
                 "trigger_type": "rules_dispute",
                 "timestamp": "2024-01-01T12:00:00Z",
-                "status": "pending"
+                "status": "pending",
             }
         ]
     except Exception as e:
         logger.error(f"Erro ao obter intervenções: {e}")
         raise HTTPException(status_code=500, detail="Erro ao obter intervenções")
+
 
 @router.post("/hitl/resolve/{intervention_id}")
 async def resolve_intervention(intervention_id: str, response: str):
@@ -403,6 +440,7 @@ async def resolve_intervention(intervention_id: str, response: str):
     except Exception as e:
         logger.error(f"Erro ao resolver intervenção: {e}")
         raise HTTPException(status_code=500, detail="Erro ao resolver intervenção")
+
 
 # =============================================================================
 # Evolution API Integration
@@ -417,11 +455,12 @@ async def get_whatsapp_status():
             "instance_name": "rpg-gm-bot",
             "qr_code": None,
             "last_check": "2024-01-01T12:00:00Z",
-            "state": "CONNECTED"
+            "state": "CONNECTED",
         }
     except Exception as e:
         logger.error(f"Erro ao obter status WhatsApp: {e}")
         raise HTTPException(status_code=500, detail="Erro ao obter status WhatsApp")
+
 
 @router.get("/whatsapp/qr")
 async def get_qr_code():
@@ -430,7 +469,7 @@ async def get_qr_code():
         # Mock response
         return {
             "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-            "expires_in": 300
+            "expires_in": 300,
         }
     except Exception as e:
         logger.error(f"Erro ao obter QR Code: {e}")

@@ -10,9 +10,11 @@ import asyncio
 from typing import Dict, List, Any, Optional
 from urllib.parse import urljoin
 
-from ..core.config import settings
+# from ..core.config import settings # Already removed in previous subtask by flake8
+from ..core.exceptions import EvolutionAPIError # Import custom exception
 
 logger = logging.getLogger(__name__)
+
 
 class EvolutionClient:
     """Cliente para Evolution API"""
@@ -26,17 +28,17 @@ class EvolutionClient:
             api_key: Chave API para autenticação
             instance_name: Nome da instância WhatsApp
         """
-        self.api_url = api_url.rstrip('/')
+        self.api_url = api_url.rstrip("/")
         self.api_key = api_key
         self.instance_name = instance_name
         self.client = httpx.AsyncClient(timeout=30.0)
         self.webhook_url = None
         self.is_connected = False
         self.status = {
-            'connected': False,
-            'qrcode': None,
-            'last_check': None,
-            'state': 'DISCONNECTED'
+            "connected": False,
+            "qrcode": None,
+            "last_check": None,
+            "state": "DISCONNECTED",
         }
 
         logger.info(f"Evolution API Client inicializado - Instância: {instance_name}")
@@ -48,10 +50,7 @@ class EvolutionClient:
 
     def _build_headers(self) -> Dict[str, str]:
         """Criar headers para requisições"""
-        return {
-            'Content-Type': 'application/json',
-            'apikey': self.api_key
-        }
+        return {"Content-Type": "application/json", "apikey": self.api_key}
 
     def _build_url(self, path: str) -> str:
         """Construir URL completa"""
@@ -68,23 +67,27 @@ class EvolutionClient:
 
                 # Atualizar status
                 self.status = {
-                    'connected': status_data.get('status') == 'CONNECTED',
-                    'qrcode': status_data.get('qrcode'),
-                    'last_check': status_data.get('timestamp'),
-                    'state': status_data.get('status', 'UNKNOWN')
+                    "connected": status_data.get("status") == "CONNECTED",
+                    "qrcode": status_data.get("qrcode"),
+                    "last_check": status_data.get("timestamp"),
+                    "state": status_data.get("status", "UNKNOWN"),
                 }
 
-                self.is_connected = self.status['connected']
+                self.is_connected = self.status["connected"]
 
                 return self.is_connected
 
             else:
-                logger.warning(f"Erro ao verificar status: {response.status_code} - {response.text}")
-                return False
+                err_msg = f"Failed to check connection status: {response.status_code} - {response.text}"
+                logger.warning(err_msg)
+                raise EvolutionAPIError(message=err_msg, status_code=response.status_code)
 
-        except Exception as e:
-            logger.error(f"Erro ao verificar conexão: {e}")
-            return False
+        except httpx.RequestError as e:
+            logger.error(f"Request error during connection check: {e}")
+            raise EvolutionAPIError(message=f"Request error: {str(e)}")
+        except Exception as e: # General errors
+            logger.error(f"Error during connection check: {e}")
+            raise EvolutionAPIError(message=str(e))
 
     async def create_instance(self) -> bool:
         """Criar instância no WhatsApp"""
@@ -95,29 +98,27 @@ class EvolutionClient:
                 "instanceName": self.instance_name,
                 "webhook": self.webhook_url,
                 "webhook_by_events": True,
-                "events": [
-                    "messages.upsert",
-                    "qr",
-                    "connection.update"
-                ]
+                "events": ["messages.upsert", "qr", "connection.update"],
             }
 
             response = await self.client.post(
-                url, 
-                headers=self._build_headers(),
-                json=data
+                url, headers=self._build_headers(), json=data
             )
 
             if response.status_code in (200, 201):
                 logger.info(f"Instância criada com sucesso: {self.instance_name}")
                 return True
+            else:
+                err_msg = f"Failed to create instance: {response.status_code} - {response.text}"
+                logger.error(err_msg)
+                raise EvolutionAPIError(message=err_msg, status_code=response.status_code)
 
-            logger.error(f"Erro ao criar instância: {response.status_code} - {response.text}")
-            return False
-
-        except Exception as e:
-            logger.error(f"Erro ao criar instância: {e}")
-            return False
+        except httpx.RequestError as e:
+            logger.error(f"Request error during instance creation: {e}")
+            raise EvolutionAPIError(message=f"Request error: {str(e)}")
+        except Exception as e: # General errors
+            logger.error(f"Error during instance creation: {e}")
+            raise EvolutionAPIError(message=str(e))
 
     async def send_text_message(self, to: str, message: str) -> bool:
         """Enviar mensagem de texto"""
@@ -126,27 +127,25 @@ class EvolutionClient:
 
             data = {
                 "number": to,
-                "options": {
-                    "delay": 1200,
-                    "presence": "composing"
-                },
-                "textMessage": {
-                    "text": message
-                }
+                "options": {"delay": 1200, "presence": "composing"},
+                "textMessage": {"text": message},
             }
 
             response = await self.client.post(
-                url,
-                headers=self._build_headers(),
-                json=data
+                url, headers=self._build_headers(), json=data
             )
 
             if response.status_code == 201:
+                logger.info(f"Message sent successfully to {to}")
                 return True
+            else:
+                err_msg = f"Failed to send message: {response.status_code} - {response.text}"
+                logger.error(err_msg)
+                raise EvolutionAPIError(message=err_msg, status_code=response.status_code)
 
-            logger.error(f"Erro ao enviar mensagem: {response.status_code} - {response.text}")
-            return False
-
-        except Exception as e:
-            logger.error(f"Erro ao enviar mensagem: {e}")
-            return False
+        except httpx.RequestError as e:
+            logger.error(f"Request error during message sending: {e}")
+            raise EvolutionAPIError(message=f"Request error: {str(e)}")
+        except Exception as e: # General errors
+            logger.error(f"Error sending message: {e}")
+            raise EvolutionAPIError(message=str(e))

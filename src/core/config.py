@@ -7,6 +7,7 @@ from typing import List, Optional
 import os
 from pathlib import Path
 
+
 class Settings(BaseSettings):
     """Configurações da aplicação"""
 
@@ -89,10 +90,16 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = Field(30, env="RATE_LIMIT_REQUESTS")
     RATE_LIMIT_PERIOD: int = Field(60, env="RATE_LIMIT_PERIOD")
+    RATE_LIMIT_STRING: str = Field("30/minute", env="RATE_LIMIT_STRING") # For slowapi
+
+    # GM API Key
+    GM_API_KEY: Optional[str] = Field(None, env="GM_API_KEY")
 
     # Upload de arquivos
     MAX_FILE_SIZE: int = Field(10485760, env="MAX_FILE_SIZE")  # 10MB
-    ALLOWED_FILE_TYPES: str = Field("image/jpeg,image/png,image/gif,application/pdf", env="ALLOWED_FILE_TYPES")
+    ALLOWED_FILE_TYPES: str = Field(
+        "image/jpeg,image/png,image/gif,application/pdf", env="ALLOWED_FILE_TYPES"
+    )
 
     # Logging
     LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
@@ -101,14 +108,11 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: List[str] = Field(
         ["http://localhost:3000", "http://localhost:8501", "http://localhost:7860"],
-        env="CORS_ORIGINS"
+        env="CORS_ORIGINS",
     )
 
     # Trusted Hosts
-    TRUSTED_HOSTS: List[str] = Field(
-        ["localhost", "127.0.0.1"],
-        env="TRUSTED_HOSTS"
-    )
+    TRUSTED_HOSTS: List[str] = Field(["localhost", "127.0.0.1"], env="TRUSTED_HOSTS")
 
     # Configurações específicas do jogo
     MAX_CONCURRENT_SESSIONS: int = Field(100, env="MAX_CONCURRENT_SESSIONS")
@@ -150,14 +154,19 @@ class Settings(BaseSettings):
             "openai": self.OPENAI_API_KEY,
             "anthropic": self.ANTHROPIC_API_KEY,
             "google": self.GOOGLE_API_KEY,
-            "ollama": True  # Ollama não precisa de API key
+            "ollama": True,  # Ollama não precisa de API key
         }
 
         if self.DEFAULT_AI_PROVIDER not in ai_providers:
             errors.append(f"Provedor de IA inválido: {self.DEFAULT_AI_PROVIDER}")
 
-        if self.DEFAULT_AI_PROVIDER != "ollama" and not ai_providers[self.DEFAULT_AI_PROVIDER]:
-            errors.append(f"API key não configurada para provedor: {self.DEFAULT_AI_PROVIDER}")
+        if (
+            self.DEFAULT_AI_PROVIDER != "ollama"
+            and not ai_providers[self.DEFAULT_AI_PROVIDER]
+        ):
+            errors.append(
+                f"API key não configurada para provedor: {self.DEFAULT_AI_PROVIDER}"
+            )
 
         # Verificar URLs obrigatórias
         if not self.EVOLUTION_API_URL.startswith(("http://", "https://")):
@@ -189,8 +198,10 @@ class Settings(BaseSettings):
         """URL de banco de dados assíncrona"""
         return self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
+
 # Instância global de configurações
 settings = Settings()
+
 
 # Função para recarregar configurações (útil para testes)
 def reload_settings():

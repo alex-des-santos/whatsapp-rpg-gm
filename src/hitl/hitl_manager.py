@@ -7,16 +7,21 @@ import asyncio
 import logging
 import json
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any # Optional removed
 from enum import Enum
+import smtplib # Moved import here
+from email.mime.text import MIMEText # Added for EmailNotifier
+from email.mime.multipart import MIMEMultipart # Added for EmailNotifier
 
 from ..core.config import settings
 from ..core.database import cache_set, cache_get
 
 logger = logging.getLogger(__name__)
 
+
 class HITLTrigger(Enum):
     """Tipos de gatilhos para intervenção humana"""
+
     COMPLEX_SITUATION = "complex_situation"
     INAPPROPRIATE_CONTENT = "inappropriate_content"
     RULES_DISPUTE = "rules_dispute"
@@ -24,6 +29,7 @@ class HITLTrigger(Enum):
     TECHNICAL_ERROR = "technical_error"
     CUSTOM_REQUEST = "custom_request"
     AI_UNCERTAINTY = "ai_uncertainty"
+
 
 class HITLManager:
     """Gerenciador Human-in-the-Loop"""
@@ -39,24 +45,51 @@ class HITLManager:
         """Carregar palavras-chave que disparam intervenção"""
         return {
             HITLTrigger.INAPPROPRIATE_CONTENT: [
-                "inadequado", "ofensivo", "impróprio", "inapropriado",
-                "violento", "sexual", "discriminação", "preconceito"
+                "inadequado",
+                "ofensivo",
+                "impróprio",
+                "inapropriado",
+                "violento",
+                "sexual",
+                "discriminação",
+                "preconceito",
             ],
             HITLTrigger.RULES_DISPUTE: [
-                "regra", "não funciona assim", "está errado", "disputo",
-                "discordo", "regras oficiais", "manual", "errata"
+                "regra",
+                "não funciona assim",
+                "está errado",
+                "disputo",
+                "discordo",
+                "regras oficiais",
+                "manual",
+                "errata",
             ],
             HITLTrigger.PLAYER_CONFLICT: [
-                "não gostei", "injusto", "favorecimento", "parcial",
-                "trapaça", "batota", "conflito", "discussão"
+                "não gostei",
+                "injusto",
+                "favorecimento",
+                "parcial",
+                "trapaça",
+                "batota",
+                "conflito",
+                "discussão",
             ],
             HITLTrigger.COMPLEX_SITUATION: [
-                "não entendo", "complicado", "confuso", "ajuda",
-                "gm humano", "mestre real", "intervenção"
+                "não entendo",
+                "complicado",
+                "confuso",
+                "ajuda",
+                "gm humano",
+                "mestre real",
+                "intervenção",
             ],
             HITLTrigger.CUSTOM_REQUEST: [
-                "gm", "mestre", "admin", "moderador", "suporte"
-            ]
+                "gm",
+                "mestre",
+                "admin",
+                "moderador",
+                "suporte",
+            ],
         }
 
     def _initialize_channels(self) -> Dict[str, Any]:
@@ -65,25 +98,25 @@ class HITLManager:
 
         # Discord
         if settings.DISCORD_WEBHOOK_URL:
-            channels['discord'] = DiscordNotifier(settings.DISCORD_WEBHOOK_URL)
+            channels["discord"] = DiscordNotifier(settings.DISCORD_WEBHOOK_URL)
 
         # Email
         if all([settings.SMTP_HOST, settings.SMTP_USERNAME, settings.SMTP_PASSWORD]):
-            channels['email'] = EmailNotifier(
+            channels["email"] = EmailNotifier(
                 host=settings.SMTP_HOST,
                 port=settings.SMTP_PORT,
                 username=settings.SMTP_USERNAME,
                 password=settings.SMTP_PASSWORD,
-                from_email=settings.SMTP_FROM_EMAIL
+                from_email=settings.SMTP_FROM_EMAIL,
             )
 
         # SMS via Twilio
         if all([settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN]):
-            channels['sms'] = SMSNotifier(
+            channels["sms"] = SMSNotifier(
                 account_sid=settings.TWILIO_ACCOUNT_SID,
                 auth_token=settings.TWILIO_AUTH_TOKEN,
                 from_number=settings.TWILIO_PHONE_NUMBER,
-                to_number=settings.GM_PHONE_NUMBER
+                to_number=settings.GM_PHONE_NUMBER,
             )
 
         return channels
@@ -105,7 +138,9 @@ class HITLManager:
         for trigger_type, keywords in self.trigger_keywords.items():
             for keyword in keywords:
                 if keyword in message_lower:
-                    logger.info(f"HITL trigger detectado: {trigger_type.value} - palavra: {keyword}")
+                    logger.info(
+                        f"HITL trigger detectado: {trigger_type.value} - palavra: {keyword}"
+                    )
                     return True
 
         # Verificar complexidade da situação
@@ -124,10 +159,10 @@ class HITLManager:
         """Detectar se a situação é muito complexa para IA"""
         complexity_indicators = [
             len(message.split()) > 50,  # Mensagem muito longa
-            message.count('?') > 2,     # Muitas perguntas
-            'multi' in message.lower(), # Ações múltiplas
-            'simultâneo' in message.lower(),
-            'ao mesmo tempo' in message.lower()
+            message.count("?") > 2,  # Muitas perguntas
+            "multi" in message.lower(),  # Ações múltiplas
+            "simultâneo" in message.lower(),
+            "ao mesmo tempo" in message.lower(),
         ]
 
         return sum(complexity_indicators) >= 2
@@ -138,8 +173,13 @@ class HITLManager:
         # Por enquanto, retorna False
         return False
 
-    async def request_intervention(self, session: Dict[str, Any], player_id: str, 
-                                 message: str, trigger_type: HITLTrigger = HITLTrigger.CUSTOM_REQUEST) -> str:
+    async def request_intervention(
+        self,
+        session: Dict[str, Any],
+        player_id: str,
+        message: str,
+        trigger_type: HITLTrigger = HITLTrigger.CUSTOM_REQUEST,
+    ) -> str:
         """
         Solicitar intervenção humana
 
@@ -152,27 +192,32 @@ class HITLManager:
         Returns:
             str: ID da intervenção criada
         """
-        intervention_id = f"hitl_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{player_id[:8]}"
+        intervention_id = (
+            f"hitl_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{player_id[:8]}"
+        )
 
         intervention_data = {
-            'id': intervention_id,
-            'session_id': session['id'],
-            'player_id': player_id,
-            'message': message,
-            'trigger_type': trigger_type.value,
-            'timestamp': datetime.now().isoformat(),
-            'status': 'pending',
-            'context': {
-                'current_scene': session.get('current_scene'),
-                'location': session.get('world_state', {}).get('location'),
-                'session_state': session.get('state'),
-                'players_count': len(session.get('players', []))
-            }
+            "id": intervention_id,
+            "session_id": session["id"],
+            "player_id": player_id,
+            "message": message,
+            "trigger_type": trigger_type.value,
+            "timestamp": datetime.now().isoformat(),
+            "status": "pending",
+            "context": {
+                "current_scene": session.get("current_scene"),
+                "location": session.get("world_state", {}).get("location"),
+                "session_state": session.get("state"),
+                "players_count": len(session.get("players", [])),
+            },
         }
 
         # Salvar no cache
-        await cache_set(f"hitl_intervention:{intervention_id}", 
-                       json.dumps(intervention_data), expire=86400)
+        await cache_set(
+            f"hitl_intervention:{intervention_id}",
+            json.dumps(intervention_data),
+            expire=86400,
+        )
 
         self.pending_interventions[intervention_id] = intervention_data
 
@@ -215,7 +260,9 @@ class HITLManager:
 Para responder, acesse o dashboard de GM.
 """
 
-    async def resolve_intervention(self, intervention_id: str, gm_response: str, gm_id: str) -> bool:
+    async def resolve_intervention(
+        self, intervention_id: str, gm_response: str, gm_id: str
+    ) -> bool:
         """
         Resolver intervenção com resposta do GM
 
@@ -236,10 +283,10 @@ Para responder, acesse o dashboard de GM.
                 return False
 
             intervention = json.loads(intervention_data)
-            intervention['status'] = 'resolved'
-            intervention['gm_response'] = gm_response
-            intervention['gm_id'] = gm_id
-            intervention['resolved_at'] = datetime.now().isoformat()
+            intervention["status"] = "resolved"
+            intervention["gm_response"] = gm_response
+            intervention["gm_id"] = gm_id
+            intervention["resolved_at"] = datetime.now().isoformat()
 
             # Atualizar no cache
             await cache_set(intervention_key, json.dumps(intervention), expire=86400)
@@ -276,7 +323,10 @@ Verificar logs do sistema para mais detalhes.
             try:
                 await notifier.send(notification)
             except Exception as e:
-                logger.error(f"Erro ao enviar notificação de erro via {channel_name}: {e}")
+                logger.error(
+                    f"Erro ao enviar notificação de erro via {channel_name}: {e}"
+                )
+
 
 # Notificadores específicos
 class DiscordNotifier:
@@ -292,7 +342,7 @@ class DiscordNotifier:
         payload = {
             "content": message,
             "username": "WhatsApp RPG GM",
-            "avatar_url": "https://cdn.iconscout.com/icon/free/png-256/discord-3-569463.png"
+            "avatar_url": "https://cdn.iconscout.com/icon/free/png-256/discord-3-569463.png",
         }
 
         async with httpx.AsyncClient() as client:
@@ -301,10 +351,13 @@ class DiscordNotifier:
             if response.status_code != 204:
                 raise Exception(f"Discord webhook failed: {response.status_code}")
 
+
 class EmailNotifier:
     """Notificador via Email"""
 
-    def __init__(self, host: str, port: int, username: str, password: str, from_email: str):
+    def __init__(
+        self, host: str, port: int, username: str, password: str, from_email: str
+    ):
         self.host = host
         self.port = port
         self.username = username
@@ -313,16 +366,16 @@ class EmailNotifier:
 
     async def send(self, message: str):
         """Enviar email"""
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
+        # import smtplib # Moved to top
+        # from email.mime.text import MIMEText # Moved to top
+        # from email.mime.multipart import MIMEMultipart # Moved to top
 
         msg = MIMEMultipart()
-        msg['From'] = self.from_email
-        msg['To'] = self.username  # Enviar para si mesmo
-        msg['Subject'] = "WhatsApp RPG GM - Intervenção HITL"
+        msg["From"] = self.from_email
+        msg["To"] = self.username  # Enviar para si mesmo
+        msg["Subject"] = "WhatsApp RPG GM - Intervenção HITL"
 
-        msg.attach(MIMEText(message, 'plain'))
+        msg.attach(MIMEText(message, "plain"))
 
         # Enviar em thread separada para não bloquear
         await asyncio.to_thread(self._send_sync, msg)
@@ -334,10 +387,13 @@ class EmailNotifier:
             server.login(self.username, self.password)
             server.send_message(msg)
 
+
 class SMSNotifier:
     """Notificador via SMS (Twilio)"""
 
-    def __init__(self, account_sid: str, auth_token: str, from_number: str, to_number: str):
+    def __init__(
+        self, account_sid: str, auth_token: str, from_number: str, to_number: str
+    ):
         self.account_sid = account_sid
         self.auth_token = auth_token
         self.from_number = from_number
@@ -358,7 +414,7 @@ class SMSNotifier:
                 client.messages.create,
                 body=message,
                 from_=self.from_number,
-                to=self.to_number
+                to=self.to_number,
             )
 
         except ImportError:

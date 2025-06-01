@@ -1,0 +1,22 @@
+repos:
+-   repo: https://github.com/psf/black
+    rev: 23.11.0 # Use a version that matches your requirements.txt or is recent
+    hooks:
+    -   id: black
+        args:
+        - --line-length=88
+-   repo: https://github.com/pycqa/flake8
+    rev: 6.1.0 # Use a version that matches your requirements.txt or is recent
+    hooks:
+    -   id: flake8
+        args:
+        - --max-line-length=88
+        - --extend-ignore=E203 # Ignore error E203 for compatibility with black
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1 # Use a version that matches your requirements.txt or is recent
+    hooks:
+    -   id: mypy
+        args: [--ignore-missing-imports, --python-version=3.11]
+        files: ^src/ # Adjust if your source code is elsewhere
+        # You might need to add additional_dependencies if mypy needs specific stubs
+        # additional_dependencies: [types-requests, ...]

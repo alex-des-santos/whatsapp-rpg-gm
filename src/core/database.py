@@ -2,7 +2,6 @@
 Configuração e gerenciamento da base de dados
 """
 
-import asyncio
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -32,6 +31,7 @@ SessionLocal = None
 # Redis client
 redis_client = None
 
+
 async def init_db():
     """Inicializar conexões com base de dados"""
     global sync_engine, async_engine, AsyncSessionLocal, SessionLocal, redis_client
@@ -42,34 +42,26 @@ async def init_db():
             settings.database_url_sync,
             pool_pre_ping=True,
             pool_recycle=300,
-            echo=settings.is_development
+            echo=settings.is_development,
         )
 
         async_engine = create_async_engine(
             settings.database_url_async,
             pool_pre_ping=True,
             pool_recycle=300,
-            echo=settings.is_development
+            echo=settings.is_development,
         )
 
         # Criar session makers
         AsyncSessionLocal = async_sessionmaker(
-            async_engine,
-            class_=AsyncSession,
-            expire_on_commit=False
+            async_engine, class_=AsyncSession, expire_on_commit=False
         )
 
-        SessionLocal = sessionmaker(
-            sync_engine,
-            autocommit=False,
-            autoflush=False
-        )
+        SessionLocal = sessionmaker(sync_engine, autocommit=False, autoflush=False)
 
         # Conectar ao Redis
         redis_client = redis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True
+            settings.REDIS_URL, encoding="utf-8", decode_responses=True
         )
 
         # Testar conexões
@@ -80,6 +72,7 @@ async def init_db():
     except Exception as e:
         logger.error(f"❌ Erro ao inicializar base de dados: {e}")
         raise
+
 
 async def test_connections():
     """Testar conectividade com base de dados"""
@@ -97,6 +90,7 @@ async def test_connections():
         logger.error(f"❌ Erro nos testes de conexão: {e}")
         raise
 
+
 async def close_db():
     """Fechar conexões com base de dados"""
     global sync_engine, async_engine, redis_client
@@ -112,6 +106,7 @@ async def close_db():
     if redis_client:
         await redis_client.close()
         logger.info("Conexão Redis fechada")
+
 
 # Dependency para FastAPI - Sessão assíncrona
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
@@ -129,6 +124,7 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
+
 # Dependency para operações síncronas
 def get_sync_session() -> Generator[Session, None, None]:
     """Dependency para obter sessão síncrona do banco"""
@@ -145,6 +141,7 @@ def get_sync_session() -> Generator[Session, None, None]:
     finally:
         session.close()
 
+
 # Dependency para Redis
 async def get_redis() -> redis.Redis:
     """Dependency para obter cliente Redis"""
@@ -152,11 +149,13 @@ async def get_redis() -> redis.Redis:
         raise RuntimeError("Redis não inicializado")
     return redis_client
 
+
 # Utility functions para cache
 async def cache_set(key: str, value: str, expire: int = 3600):
     """Definir valor no cache"""
     if redis_client:
         await redis_client.setex(key, expire, value)
+
 
 async def cache_get(key: str) -> str | None:
     """Obter valor do cache"""
@@ -164,16 +163,19 @@ async def cache_get(key: str) -> str | None:
         return await redis_client.get(key)
     return None
 
+
 async def cache_delete(key: str):
     """Deletar chave do cache"""
     if redis_client:
         await redis_client.delete(key)
+
 
 async def cache_exists(key: str) -> bool:
     """Verificar se chave existe no cache"""
     if redis_client:
         return await redis_client.exists(key) > 0
     return False
+
 
 # Context manager para transações
 class DatabaseTransaction:
@@ -191,6 +193,7 @@ class DatabaseTransaction:
             logger.error(f"Transação revertida devido a erro: {exc_val}")
         else:
             await self.session.commit()
+
 
 # Utility para paginação
 class Pagination:
