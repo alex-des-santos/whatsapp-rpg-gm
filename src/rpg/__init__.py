@@ -1,1 +1,0 @@
-"""Módulo RPG - Sistema de jogo D&D 5e"""

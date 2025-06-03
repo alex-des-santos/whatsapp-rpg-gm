@@ -1,0 +1,295 @@
+# ==========================================
+# TESTING FRAMEWORKS
+# ==========================================
+
+# Pytest - Framework de testes principal
+pytest==7.4.3
+
+# Pytest async support
+pytest-asyncio==0.21.1
+
+# Pytest coverage
+pytest-cov==4.1.0
+
+# Pytest mock
+pytest-mock==3.12.0
+
+# Pytest xdist para testes paralelos
+pytest-xdist==3.5.0
+
+# Pytest HTML reports
+pytest-html==4.1.1
+
+# Pytest benchmark
+pytest-benchmark==4.0.0
+
+# ==========================================
+# CODE QUALITY
+# ==========================================
+
+# Black - Formatador de código
+black==23.11.0
+
+# isort - Organizador de imports
+isort==5.12.0
+
+# flake8 - Linter
+flake8==6.1.0
+
+# mypy - Type checker
+mypy==1.7.1
+
+# pylint - Analisador de código
+pylint==3.0.3
+
+# bandit - Security linter
+bandit==1.7.5
+
+# ==========================================
+# DEVELOPMENT TOOLS
+# ==========================================
+
+# IPython para debugging
+ipython==8.17.2
+
+# IPython debugger
+ipdb==0.13.13
+
+# Jupyter para notebooks
+jupyter==1.0.0
+
+# Memory profiler
+memory-profiler==0.61.0
+
+# Line profiler
+line-profiler==4.1.1
+
+# ==========================================
+# DOCUMENTATION
+# ==========================================
+
+# Sphinx para documentação
+sphinx==7.2.6
+
+# Sphinx themes
+sphinx-rtd-theme==1.3.0
+
+# Sphinx autodoc
+sphinx-autodoc-typehints==1.25.2
+
+# ==========================================
+# API TESTING
+# ==========================================
+
+# HTTPX para testes de API
+httpx==0.25.2
+
+# Requests mock
+responses==0.24.1
+
+# VCR para gravação de requisições HTTP
+vcrpy==6.0.1
+
+# ==========================================
+# DATABASE TESTING
+# ==========================================
+
+# Factory boy para factories de teste
+factory-boy==3.3.0
+
+# Faker para dados fake
+Faker==20.1.0
+
+# SQLAlchemy utils para testes
+sqlalchemy-utils==0.41.1
+
+# ==========================================
+# MOCKING
+# ==========================================
+
+# Responses para mock de HTTP
+responses==0.24.1
+
+# pytest-httpserver para servidor de teste
+pytest-httpserver==1.0.8
+
+# Freezegun para mock de tempo
+freezegun==1.2.2
+
+# ==========================================
+# LOAD TESTING
+# ==========================================
+
+# Locust para load testing
+locust==2.17.0
+
+# Stress testing
+stress==1.0.0
+
+# ==========================================
+# PRE-COMMIT HOOKS
+# ==========================================
+
+# Pre-commit framework
+pre-commit==3.6.0
+
+# Commitizen para conventional commits
+commitizen==3.13.0
+
+# ==========================================
+# DEPENDENCY MANAGEMENT
+# ==========================================
+
+# pip-tools para gerenciar dependências
+pip-tools==7.3.0
+
+# Safety para verificar vulnerabilidades
+safety==2.3.5
+
+# Pipdeptree para visualizar árvore de dependências
+pipdeptree==2.13.1
+
+# ==========================================
+# ENVIRONMENT MANAGEMENT
+# ==========================================
+
+# python-dotenv para desenvolvimento
+python-dotenv==1.0.0
+
+# Environs para configuração
+environs==10.3.0
+
+# ==========================================
+# DEBUGGING
+# ==========================================
+
+# PDB++
+pdbpp==0.10.3
+
+# Debugging tools
+debugpy==1.8.0
+
+# Rich para output colorido
+rich==13.7.0
+
+# ==========================================
+# PERFORMANCE MONITORING
+# ==========================================
+
+# py-spy para profiling
+py-spy==0.3.14
+
+# Austin para profiling
+austin-python==1.6.0
+
+# ==========================================
+# FIXTURE MANAGEMENT
+# ==========================================
+
+# pytest-fixtures
+pytest-fixture-config==1.7.0
+
+# pytest-docker para containers de teste
+pytest-docker==2.0.1
+
+# ==========================================
+# API DOCUMENTATION
+# ==========================================
+
+# OpenAPI spec validation
+openapi-spec-validator==0.7.1
+
+# Spectree para documentação automática
+spectree==1.2.8
+
+# ==========================================
+# DATABASE TOOLS
+# ==========================================
+
+# Alembic autogenerate improvements
+alembic-postgresql-enum==1.1.2
+
+# SQLAlchemy stubs para mypy
+sqlalchemy-stubs==0.4
+
+# ==========================================
+# REDIS TESTING
+# ==========================================
+
+# Fakeredis para testes
+fakeredis==2.20.1
+
+# Redis mock
+redis-mock==0.1.4
+
+# ==========================================
+# WHATSAPP TESTING
+# ==========================================
+
+# Mock para APIs externas
+requests-mock==1.11.0
+
+# aioresponses para mocks async
+aioresponses==0.7.4
+
+# ==========================================
+# LINTING EXTENSIONS
+# ==========================================
+
+# flake8 plugins
+flake8-docstrings==1.7.0
+flake8-import-order==0.18.2
+flake8-bugbear==23.11.28
+flake8-comprehensions==3.14.0
+
+# pylint extensions
+pylint-django==2.5.5
+
+# ==========================================
+# TYPE CHECKING
+# ==========================================
+
+# Type stubs
+types-requests==2.31.0.10
+types-redis==4.6.0.11
+types-PyYAML==6.0.12.12
+
+# ==========================================
+# REPORTING
+# ==========================================
+
+# Coverage reporting
+coverage==7.3.2
+
+# JUnit XML para CI/CD
+pytest-json-report==1.5.0
+
+# ==========================================
+# UTILITY TOOLS
+# ==========================================
+
+# Watchdog para file watching
+watchdog==3.0.0
+
+# Halo para spinners
+halo==0.0.31
+
+# Tqdm para progress bars
+tqdm==4.66.1
+
+# ==========================================
+# SECURITY TESTING
+# ==========================================
+
+# Bandit para security
+bandit==1.7.5
+
+# Semgrep para SAST
+semgrep==1.51.0
+
+# ==========================================
+# DEVELOPMENT SERVER
+# ==========================================
+
+# Uvicorn para desenvolvimento
+uvicorn[standard]==0.24.0

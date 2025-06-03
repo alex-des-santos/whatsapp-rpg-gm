@@ -1,218 +1,202 @@
 version: '3.8'
 
 services:
-  # ============================================================================
-  # APLICAÇÃO PRINCIPAL
-  # ============================================================================
-  app:
-    build: .
+  # Aplicação principal do WhatsApp RPG GM
+  whatsapp_rpg_gm:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: whatsapp-rpg-gm
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8000:8000"
     environment:
-      - POSTGRES_HOST=postgres
-      - REDIS_HOST=redis
-      - EVOLUTION_API_URL=http://evolution-api:8080
+      - DATABASE_URL=postgresql://rpg_user:rpg_password@postgres:5432/rpg_db
+      - REDIS_URL=redis://redis:6379/0
+      - VERIFY_TOKEN=${VERIFY_TOKEN}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - INSTANCE_NAME=${INSTANCE_NAME}
+      - AI_PROVIDER=${AI_PROVIDER}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      # Volume para dados do jogo persistentes
+      - game_data:/app/data
+      # Volume para logs da aplicação
+      - logs_data:/app/logs
+      # Volume para sessões do WhatsApp
+      - whatsapp_sessions:/app/sessions
+      # Volume para personagens salvos
+      - characters_data:/app/characters
+      # Volume para backups automáticos
+      - backups_data:/app/backups
+      # Volume para configurações de IA
+      - ai_configs:/app/ai_configs
     depends_on:
-      - postgres
-      - redis
-    volumes:
-      - ./logs:/app/logs
-      - ./data:/app/data
-    restart: unless-stopped
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
-      - rpg-network
+      - rpg_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # ============================================================================
-  # BASE DE DADOS
-  # ============================================================================
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: rpg_gm_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+  # Interface GUI com Streamlit
+  rpg_gui:
+    build:
+      context: .
+      dockerfile: Dockerfile.gui
+    container_name: whatsapp-rpg-gui
     restart: unless-stopped
-    networks:
-      - rpg-network
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-    networks:
-      - rpg-network
-
-  # ============================================================================
-  # EVOLUTION API (WHATSAPP)
-  # ============================================================================
-  evolution-api:
-    image: atendai/evolution-api:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - SERVER_TYPE=http
-      - SERVER_PORT=8080
-      - CORS_ORIGIN=*
-      - CORS_METHODS=POST,GET,PUT,DELETE
-      - CORS_CREDENTIALS=true
-      - LOG_LEVEL=ERROR
-      - LOG_COLOR=true
-      - LOG_BAILEYS=error
-      - DATABASE_ENABLED=true
-      - DATABASE_CONNECTION_URI=postgresql://postgres:postgres123@postgres:5432/evolution_db
-      - DATABASE_CONNECTION_CLIENT_NAME=EvolutionAPI
-      - REDIS_ENABLED=true
-      - REDIS_URI=redis://redis:6379
-      - WEBHOOK_GLOBAL_ENABLED=true
-      - WEBHOOK_GLOBAL_URL=http://app:3000/webhook
-      - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=true
-      - CONFIG_SESSION_PHONE_CLIENT=WhatsApp RPG GM
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - evolution_instances:/evolution/instances
-    restart: unless-stopped
-    networks:
-      - rpg-network
-
-  # ============================================================================
-  # INTERFACES WEB (OPCIONAL)
-  # ============================================================================
-  streamlit:
-    build: .
-    command: streamlit run src/interfaces/streamlit_dashboard.py --server.address 0.0.0.0 --server.port 8501
     ports:
       - "8501:8501"
     environment:
-      - POSTGRES_HOST=postgres
-      - REDIS_HOST=redis
-    depends_on:
-      - app
-      - postgres
-      - redis
+      - API_BASE_URL=http://whatsapp_rpg_gm:8000
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
     volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-    networks:
-      - rpg-network
-    profiles:
-      - dashboard
-
-  gradio:
-    build: .
-    command: python src/interfaces/gradio_interface.py
-    ports:
-      - "7860:7860"
-    environment:
-      - POSTGRES_HOST=postgres
-      - REDIS_HOST=redis
+      - gui_data:/app/gui_data
     depends_on:
-      - app
-    restart: unless-stopped
+      - whatsapp_rpg_gm
     networks:
-      - rpg-network
-    profiles:
-      - dashboard
+      - rpg_network
 
-  # ============================================================================
-  # NGINX PROXY (OPCIONAL)
-  # ============================================================================
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15
+    container_name: rpg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rpg_db
+      POSTGRES_USER: rpg_user
+      POSTGRES_PASSWORD: rpg_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - rpg_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rpg_user -d rpg_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Cache Redis
+  redis:
+    image: redis:7-alpine
+    container_name: rpg-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - rpg_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Nginx para proxy reverso (opcional)
   nginx:
     image: nginx:alpine
+    container_name: rpg-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./frontend:/usr/share/nginx/html
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
-      - app
-    restart: unless-stopped
+      - whatsapp_rpg_gm
+      - rpg_gui
     networks:
-      - rpg-network
-    profiles:
-      - production
+      - rpg_network
 
-  # ============================================================================
-  # MONITORAMENTO (OPCIONAL)
-  # ============================================================================
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-    restart: unless-stopped
-    networks:
-      - rpg-network
-    profiles:
-      - monitoring
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
-    volumes:
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
-    restart: unless-stopped
-    networks:
-      - rpg-network
-    profiles:
-      - monitoring
-
-# ============================================================================
-# VOLUMES
-# ============================================================================
+# Volumes persistentes
 volumes:
+  # Dados do jogo (estado do mundo, campanhas, etc.)
+  game_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/game_data
+  
+  # Logs da aplicação
+  logs_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/logs
+  
+  # Sessões do WhatsApp
+  whatsapp_sessions:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/sessions
+  
+  # Dados de personagens
+  characters_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/characters
+  
+  # Backups automáticos
+  backups_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/backups
+  
+  # Configurações de IA
+  ai_configs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/ai_configs
+  
+  # Dados da GUI
+  gui_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/gui_data
+  
+  # Dados do PostgreSQL
   postgres_data:
     driver: local
+  
+  # Dados do Redis
   redis_data:
     driver: local
-  evolution_instances:
-    driver: local
-  prometheus_data:
-    driver: local
-  grafana_data:
-    driver: local
 
-# ============================================================================
-# NETWORKS
-# ============================================================================
+# Rede customizada
 networks:
-  rpg-network:
+  rpg_network:
     driver: bridge
-
-# ============================================================================
-# CONFIGURAÇÕES ADICIONAIS
-# ============================================================================
-# Para usar perfis específicos:
-# 
-# Básico (apenas essenciais):
-# docker-compose up -d app postgres redis evolution-api
-#
-# Com dashboards:
-# docker-compose --profile dashboard up -d
-#
-# Com monitoramento:
-# docker-compose --profile monitoring up -d
-#
-# Completo:
-# docker-compose --profile dashboard --profile monitoring --profile production up -d
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

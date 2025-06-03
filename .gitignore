@@ -1,12 +1,32 @@
-# Byte-compiled / optimized / DLL files
+# ==========================================
+# ARQUIVOS DE CONFIGURAÇÃO SENSÍVEIS
+# ==========================================
+
+# Arquivo de configuração local
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+
+# Chaves e certificados
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+ssl/
+
+# ==========================================
+# PYTHON
+# ==========================================
+
+# Bytecode
 __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
-*.so
-
-# Distribution / packaging
+# Distribuição / empacotamento
 .Python
 build/
 develop-eggs/
@@ -49,29 +69,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
 # Jupyter Notebook
 .ipynb_checkpoints
 
@@ -88,7 +85,7 @@ Pipfile.lock
 # PEP 582
 __pypackages__/
 
-# Celery stuff
+# Celery
 celerybeat-schedule
 celerybeat.pid
 
@@ -122,6 +119,79 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# ==========================================
+# DOCKER
+# ==========================================
+
+# Docker volumes locais
+volumes/
+docker-volumes/
+
+# Docker build context
+.dockerignore
+
+# ==========================================
+# DADOS E LOGS
+# ==========================================
+
+# Logs da aplicação
+logs/
+*.log
+*.log.*
+
+# Dados persistentes
+data/
+game_data/
+sessions/
+characters/
+backups/
+ai_configs/
+gui_data/
+
+# Arquivos temporários
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Cache files
+cache/
+.cache/
+
+# ==========================================
+# BANCO DE DADOS
+# ==========================================
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# PostgreSQL dumps
+*.sql
+*.dump
+
+# Database migrations (mantenha apenas os arquivos de template)
+alembic/versions/*.py
+!alembic/versions/README
+
+# ==========================================
+# WHATSAPP E API
+# ==========================================
+
+# Sessões do WhatsApp
+*.session
+*.json.session
+qr_codes/
+
+# Chaves de API
+api_keys/
+credentials/
+
+# ==========================================
+# DESENVOLVIMENTO
+# ==========================================
+
 # IDEs
 .vscode/
 .idea/
@@ -129,7 +199,7 @@ dmypy.json
 *.swo
 *~
 
-# OS
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -138,27 +208,126 @@ dmypy.json
 ehthumbs.db
 Thumbs.db
 
-# Logs
-logs/
-*.log
+# ==========================================
+# TESTING
+# ==========================================
 
-# Docker
-.dockerignore
+# Test artifacts
+test_results/
+test_reports/
+.coverage
+htmlcov/
 
-# Temporary files
-*.tmp
-*.temp
+# Mock data
+test_data/
+mock_data/
 
-# Database
-*.db
-*.sqlite
+# ==========================================
+# STREAMLIT
+# ==========================================
 
-# Backup files
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Streamlit cache
+.streamlit/
+
+# ==========================================
+# NGINX E PROXY
+# ==========================================
+
+# Certificados SSL
+nginx/ssl/
+ssl/
+
+# Logs do nginx
+nginx/logs/
+
+# ==========================================
+# BACKUP E ARQUIVOS
+# ==========================================
+
+# Arquivos de backup
 *.bak
 *.backup
+backup_*/
 
-# Evolution API instances
-evolution_instances/
+# Arquivos comprimidos
+*.zip
+*.tar.gz
+*.rar
+*.7z
 
-# Data backups
-backups/
+# ==========================================
+# MONITORAMENTO
+# ==========================================
+
+# Métricas
+metrics/
+prometheus/
+
+# Grafana
+grafana/
+
+# ==========================================
+# NODE.JS (se houver frontend)
+# ==========================================
+
+# Dependencies
+node_modules/
+
+# Production
+build/
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================================
+# CUSTOM PROJECT FILES
+# ==========================================
+
+# Arquivos específicos do projeto
+custom_configs/
+local_settings.py
+
+# Dados de usuário
+user_data/
+player_data/
+
+# Campanhas específicas
+campaigns/
+adventures/
+
+# ==========================================
+# SEGURANÇA
+# ==========================================
+
+# Não versionar dados sensíveis
+secrets/
+private/
+confidential/
+
+# Arquivos de autenticação
+auth/
+tokens/
+
+# ==========================================
+# COMENTÁRIOS ÚTEIS
+# ==========================================
+
+# Para adicionar exceções, use:
+# !arquivo_importante.txt
+
+# Para ignorar apenas em subdiretórios:
+# */arquivo_ignore.txt
+
+# Para ignorar globalmente:
+# **/arquivo_global.txt

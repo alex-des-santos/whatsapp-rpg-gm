@@ -1,462 +1,403 @@
-# 🎲 WhatsApp RPG GM
+# WhatsApp RPG Game Master 🎲
 
-Sistema completo de Mestre de Jogo com Inteligência Artificial para WhatsApp, especializado em D&D 5e.
+Sistema completo de Game Master automatizado para WhatsApp, desenvolvido com FastAPI e implementando todas as recomendações críticas de arquitetura e segurança.
 
-## 🎯 Visão Geral
+## 🚀 Funcionalidades Principais
 
-O WhatsApp RPG GM é uma aplicação robusta que atua como um Mestre de Jogo automatizado para sessões de RPG via WhatsApp. Utiliza Inteligência Artificial para gerar narrativas, gerenciar personagens, processar rolagens de dados e coordenar sessões completas de D&D 5e.
+### 🎮 Sistema de RPG Completo
+- **Gestão de Personagens**: Criação, edição e gerenciamento de personagens D&D 5e
+- **Validação de Duplicidade**: Sistema robusto que previne criação de personagens duplicados
+- **Limites por Jogador**: Controle de quantidade máxima de personagens por usuário
+- **Sistema de Experiência**: Progressão automática de nível com cálculo de XP
 
-### ✨ Características Principais
+### 📱 Integração WhatsApp
+- **Evolution API**: Integração completa com WhatsApp Business API
+- **Mensagens Interativas**: Botões, listas e menus para melhor experiência
+- **Webhook Seguro**: Processamento de mensagens com validação robusta
+- **Comandos RPG**: Interface natural através de comandos de texto
 
-- **🤖 IA Avançada**: Múltiplos provedores (OpenAI, Anthropic, Google, Ollama)
-- **🎮 Sistema Completo D&D 5e**: Personagens, dados, combate, magia
-- **📱 Integração WhatsApp**: Via Evolution API
-- **👨‍🏫 Human-in-the-Loop**: Intervenção humana quando necessário
-- **🔧 Modular e Escalável**: Arquitetura preparada para expansão
-- **📊 Dashboard Web**: Interface completa de gerenciamento
-- **🐳 Docker Ready**: Containerização completa
+### 🤖 Inteligência Artificial
+- **Múltiplos Provedores**: OpenAI, Google AI, Anthropic e LLMs locais
+- **Game Master IA**: Narração automática e tomada de decisões
+- **Geração de Conteúdo**: Criação de histórias, NPCs e aventuras
+- **Processamento de Linguagem Natural**: Compreensão de comandos em português
 
-## 🚀 Instalação Rápida
+### 🏗️ Arquitetura Robusta
+- **Volumes Docker**: Persistência completa de dados entre reinicializações
+- **Health Checks**: Monitoramento abrangente de todos os componentes
+- **Testes Automatizados**: Cobertura completa com pytest
+- **Validação de Ambiente**: Verificação rigorosa de configurações críticas
 
-### Pré-requisitos
+## 📋 Requisitos
 
-- Docker e Docker Compose
-- Python 3.11+ (para desenvolvimento)
-- Evolution API configurada
-- Pelo menos um provedor de IA configurado
+### Obrigatórios
+- **Docker** e **Docker Compose**
+- **PostgreSQL** (incluído no compose)
+- **Redis** (incluído no compose)
+- **Evolution API** (servidor WhatsApp)
+- **Chave de IA** (OpenAI, Google AI, Anthropic ou LLM local)
 
-### 1. Clone e Configure
+### Opcionais
+- **Python 3.11+** (para desenvolvimento local)
+- **Nginx** (para proxy reverso em produção)
 
+## ⚡ Instalação Rápida
+
+### 1. Clone o Repositório
 ```bash
 git clone https://github.com/seu-usuario/whatsapp-rpg-gm.git
 cd whatsapp-rpg-gm
-
-# Copie e configure as variáveis de ambiente
-cp .env.example .env
-nano .env  # Configure suas chaves de API
 ```
 
-### 2. Configure Variáveis Essenciais
-
-No arquivo `.env`, configure pelo menos:
-
+### 2. Configure o Ambiente
 ```bash
-# Evolution API
-EVOLUTION_API_URL=http://localhost:8080
-EVOLUTION_API_KEY=sua-chave-evolution-api
-EVOLUTION_INSTANCE_NAME=rpg-gm-bot
-WEBHOOK_BASE_URL=https://seudominio.com
+# Copie o arquivo de exemplo
+cp .env.example .env
 
-# IA (pelo menos uma)
-OPENAI_API_KEY=sk-sua-chave-openai
-# ou
-ANTHROPIC_API_KEY=sk-ant-sua-chave-anthropic
+# Edite com suas credenciais
+nano .env
+```
+
+### 3. Variáveis Obrigatórias
+Configure no arquivo `.env`:
+
+```env
+# WhatsApp Evolution API
+EVOLUTION_API_URL=https://sua-evolution-api.com
+EVOLUTION_API_KEY=sua_chave_evolution_api
+INSTANCE_NAME=sua_instancia_whatsapp
+VERIFY_TOKEN=seu_token_verificacao_minimo_12_chars
 
 # Segurança
-SECRET_KEY=sua-chave-secreta-complexa
+SECRET_KEY=sua_chave_secreta_muito_longa_para_jwt
 
-# Base de dados (as padrão funcionam para desenvolvimento)
-DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/rpg_gm_db
-REDIS_URL=redis://redis:6379/0
+# IA (configure pelo menos um)
+AI_PROVIDER=openai
+OPENAI_API_KEY=sk-sua_chave_openai
+
+# Banco de dados (já configurado para Docker)
+DATABASE_URL=postgresql://rpg_user:rpg_password@postgres:5432/rpg_db
+REDIS_URL=redis://:redis_password@redis:6379/0
 ```
 
-### 3. Inicie os Serviços
-
+### 4. Inicie os Serviços
 ```bash
-# Apenas serviços essenciais
-docker-compose up -d app postgres redis evolution-api
+# Criar diretórios de volumes
+mkdir -p volumes/{game_data,logs,sessions,characters,backups,ai_configs,gui_data}
 
-# Com dashboard (recomendado)
-docker-compose --profile dashboard up -d
+# Iniciar containers
+docker-compose up --build -d
 
-# Completo com monitoramento
-docker-compose --profile dashboard --profile monitoring up -d
+# Verificar funcionamento
+curl http://localhost:8000/health/detailed
 ```
 
-### 4. Acesse as Interfaces
-
-- **API Principal**: http://localhost:3000
-- **Documentação**: http://localhost:3000/docs
-- **Dashboard**: http://localhost:8501 (Streamlit)
-- **Interface Gradio**: http://localhost:7860
-- **Evolution API**: http://localhost:8080
-
-## 📋 Comandos WhatsApp
-
-### Comandos Básicos
-
-- `/start` - Iniciar o jogo
-- `/help` - Mostrar ajuda
-- `/status` - Ver status do personagem
-- `/inventario` - Ver inventário
-
-### Criação de Personagem
-
-- `/criar-personagem` - Criação interativa
-- `/criar-personagem auto` - Criação automática
-
-### Sistema de Dados
-
-- `/rolar 1d20+5` - Rolar dados com modificador
-- `/rolar vantagem` - Rolar com vantagem
-- `/rolar desvantagem` - Rolar com desvantagem
-- `/rolar atributos` - Rolar novos atributos
-
-### Combate
-
-- `/ataque [alvo]` - Atacar inimigo
-- `/magia [nome]` - Lançar magia
-- `/defesa` - Ação de defesa
-- `/iniciativa` - Rolar iniciativa
-
-### Comandos GM
-
-- `/gm pausar` - Pausar sessão
-- `/gm anuncio [mensagem]` - Anúncio global
-- `/gm backup` - Criar backup
-- `/gm stats` - Estatísticas
-
-## 🏗️ Arquitetura
-
+### 5. Configure o Webhook
+Na sua Evolution API, configure o webhook para:
 ```
-whatsapp-rpg-gm/
-├── src/
-│   ├── core/           # Núcleo (config, database, game_manager)
-│   ├── whatsapp/       # Integração Evolution API
-│   ├── ai/             # Sistema de IA
-│   ├── rpg/            # Mecânicas D&D 5e
-│   ├── hitl/           # Human-in-the-Loop
-│   └── interfaces/     # APIs e WebSocket
-├── frontend/           # Interface web
-├── config/             # Configurações
-├── data/               # Dados do jogo
-└── docs/               # Documentação
+http://seu-servidor:8000/webhook/message
 ```
 
-### Componentes Principais
+## 🔧 Uso
 
-#### 🎮 Game Manager
-Coordena todas as operações de jogo:
-- Gerenciamento de sessões
-- Estado dos personagens
-- Integração com IA
-- Processamento de comandos
+### Comandos WhatsApp
 
-#### 🤖 AI Coordinator
-Sistema de IA com múltiplos provedores:
-- **OpenAI GPT-4**: Narrativas principais
-- **Anthropic Claude**: Diálogos de NPCs
-- **Google Gemini**: Descrições de ambiente
-- **Ollama**: LLM local para backup
+#### Gerenciamento de Personagens
+```
+/criar personagem
+/listar personagens
+/ficha [nome]
+/editar [nome]
+/deletar [nome]
+```
 
-#### 🎲 Dice System
-Sistema completo de dados D&D 5e:
-- Suporte a todas as expressões (1d20+5, 2d6, etc.)
-- Vantagem/Desvantagem
-- Críticos e falhas críticas
-- Testes de resistência
+#### Sistema RPG
+```
+/rolar 1d20+5
+/rolar 2d6 vantagem
+/status [personagem]
+/xp adicionar [quantidade]
+/descanso [tipo]
+```
 
-#### 👨‍🏫 HITL Manager
-Human-in-the-Loop para situações complexas:
-- Detecção automática de situações críticas
-- Notificações via Discord/Email/SMS
-- Interface para GM humano intervir
+#### Comandos do GM
+```
+/aventura criar
+/npc gerar
+/historia continuar
+/ajuda
+```
 
-## 🔧 Configuração Avançada
+### API REST
 
-### Provedores de IA
-
-Configure múltiplos provedores para redundância:
-
+#### Personagens
 ```bash
-# OpenAI (recomendado para narrativas)
-OPENAI_API_KEY=sk-sua-chave
-OPENAI_MODEL=gpt-4
-OPENAI_TEMPERATURE=0.7
+# Verificar duplicidade
+GET /api/character/check_duplicate/{nome}
 
-# Anthropic (excelente para diálogos)
-ANTHROPIC_API_KEY=sk-ant-sua-chave
-ANTHROPIC_MODEL=claude-3-sonnet-20240229
+# Criar personagem
+POST /api/character/create_character
 
-# Google (bom custo-benefício)
-GOOGLE_API_KEY=sua-chave-google
-GOOGLE_MODEL=gemini-pro
+# Listar personagens do jogador
+GET /api/character/list/{player_id}
 
-# Ollama (local, sem custos)
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=llama2:13b
+# Buscar por ID
+GET /api/character/{character_id}
+
+# Atualizar
+PUT /api/character/{character_id}
+
+# Deletar
+DELETE /api/character/{character_id}
 ```
 
-### Evolution API
-
-1. Instale a Evolution API:
+#### Health Checks
 ```bash
-git clone https://github.com/EvolutionAPI/evolution-api.git
-cd evolution-api
-docker-compose up -d
+# Health check básico
+GET /health/
+
+# Verificação detalhada
+GET /health/detailed
+
+# Readiness probe (Kubernetes)
+GET /health/readiness
+
+# Liveness probe (Kubernetes)
+GET /health/liveness
+
+# Métricas básicas
+GET /health/metrics
 ```
 
-2. Configure no `.env`:
+### Interface GUI
+
+Acesse a interface Streamlit em:
+```
+http://localhost:8501
+```
+
+Funcionalidades da GUI:
+- **Dashboard**: Visão geral do sistema
+- **Gerenciamento**: CRUD de personagens
+- **Monitoramento**: Health checks e métricas
+- **Configurações**: Ajustes de IA e sistema
+
+## 🧪 Testes
+
+### Executar Todos os Testes
 ```bash
-EVOLUTION_API_URL=http://evolution-api:8080
-EVOLUTION_API_KEY=sua-chave
-EVOLUTION_INSTANCE_NAME=rpg-gm-bot
+# Via Docker
+docker-compose exec whatsapp_rpg_gm pytest -v
+
+# Local (se Python instalado)
+pytest -v
 ```
 
-3. Configure webhook:
-- Acesse http://localhost:8080
-- Crie instância "rpg-gm-bot"
-- Configure webhook: `https://seudominio.com/webhook`
-
-### HITL Notifications
-
-Configure notificações para intervenção humana:
-
+### Testes Específicos
 ```bash
-# Discord
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/seu-webhook
+# Apenas testes de duplicidade
+pytest tests/test_character/test_duplicates.py -v
 
-# Email
-SMTP_HOST=smtp.gmail.com
-SMTP_USERNAME=seuemail@gmail.com
-SMTP_PASSWORD=sua-senha
+# Apenas testes unitários
+pytest -m unit
 
-# SMS via Twilio
-TWILIO_ACCOUNT_SID=seu-sid
-TWILIO_AUTH_TOKEN=seu-token
-TWILIO_PHONE_NUMBER=+5511999999999
+# Apenas testes de integração
+pytest -m integration
+
+# Com cobertura de código
+pytest --cov=app --cov-report=html
 ```
+
+### Markers Disponíveis
+- `unit`: Testes unitários
+- `integration`: Testes de integração
+- `api`: Testes de API
+- `character`: Testes de personagens
+- `whatsapp`: Testes WhatsApp
+- `slow`: Testes demorados
 
 ## 📊 Monitoramento
 
-### Métricas Disponíveis
-
-- Sessões ativas
-- Total de jogadores
-- Rolagens de dados
-- Mensagens processadas
-- Tempo de resposta da IA
-- Status da Evolution API
-- Triggers HITL
-
-### Interfaces de Monitoramento
-
-- **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3001
-- **Logs**: http://localhost:3000/api/logs
-
-## 🛠️ Desenvolvimento
-
-### Configuração Local
-
+### Health Checks
 ```bash
-# Ambiente virtual
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
+# Verificação completa
+curl http://localhost:8000/health/detailed
 
-# Dependências
-pip install -r requirements.txt
+# Apenas banco de dados
+curl http://localhost:8000/health/readiness
 
-# Executar localmente
-python main.py
+# Status básico
+curl http://localhost:8000/health/
 ```
 
-### Estrutura de Dados
-
-#### Personagem
-```python
-{
-    "name": "Thorin Machado de Ferro",
-    "race": "anao",
-    "character_class": "guerreiro",
-    "level": 3,
-    "hp_current": 28,
-    "hp_max": 32,
-    "armor_class": 16,
-    "attributes": {
-        "strength": 16,
-        "dexterity": 12,
-        "constitution": 15,
-        "intelligence": 10,
-        "wisdom": 13,
-        "charisma": 8
-    }
-}
-```
-
-#### Sessão
-```python
-{
-    "id": "session_001",
-    "state": "active",
-    "players": ["player1", "player2"],
-    "current_scene": "Taverna do Dragão",
-    "world_state": {
-        "location": "Vila de Pedravale",
-        "time_of_day": "tarde",
-        "weather": "ensolarado"
-    }
-}
-```
-
-### Extensibilidade
-
-O sistema foi projetado para fácil extensão:
-
-#### Adicionar Nova Classe de Personagem
-```python
-# src/rpg/character_manager.py
-CharacterClass.ARTIFICER = "artificer"
-
-class_data[CharacterClass.ARTIFICER] = {
-    'hit_die': 8,
-    'proficiencies': ['arcana', 'investigation'],
-    'starting_equipment': ['light_crossbow', 'thieves_tools'],
-    'features': ['magical_tinkering', 'infuse_item']
-}
-```
-
-#### Adicionar Novo Provedor de IA
-```python
-# src/ai/ai_coordinator.py
-class CustomAIProvider(BaseAIProvider):
-    async def generate(self, prompt: str) -> str:
-        # Implementar integração
-        pass
-```
-
-## 🚨 Troubleshooting
-
-### Problemas Comuns
-
-#### Evolution API não conecta
+### Logs
 ```bash
-# Verificar logs
-docker-compose logs evolution-api
+# Logs da aplicação
+docker-compose logs -f whatsapp_rpg_gm
 
-# Recriar instância
-curl -X DELETE http://localhost:8080/instance/delete/rpg-gm-bot
-curl -X POST http://localhost:8080/instance/create -d '{"instanceName":"rpg-gm-bot"}'
+# Logs do banco
+docker-compose logs -f postgres
+
+# Logs específicos
+docker-compose logs --tail=100 whatsapp_rpg_gm
 ```
 
-#### IA não responde
-```bash
-# Verificar configuração
-curl http://localhost:3000/api/status
-
-# Testar provedor
-curl -X POST http://localhost:3000/api/dice/roll -d '{"expression":"1d20"}'
-```
-
-#### Banco de dados
-```bash
-# Acessar PostgreSQL
-docker-compose exec postgres psql -U postgres -d rpg_gm_db
-
-# Reset do Redis
-docker-compose exec redis redis-cli FLUSHALL
-```
-
-### Logs Úteis
-
-```bash
-# Todos os logs
-docker-compose logs -f
-
-# Apenas aplicação
-docker-compose logs -f app
-
-# Com filtro
-docker-compose logs app | grep ERROR
-```
+### Métricas
+- **Prometheus**: `http://localhost:9090/metrics`
+- **Aplicação**: `http://localhost:8000/health/metrics`
+- **GUI**: `http://localhost:8501`
 
 ## 🔒 Segurança
 
-### Configurações Recomendadas
+### Validações Implementadas
+- ✅ **VERIFY_TOKEN**: Mínimo 12 caracteres, sem valores padrão
+- ✅ **SECRET_KEY**: Mínimo 32 caracteres, verificação de força
+- ✅ **API Keys**: Validação de formato específico por provedor
+- ✅ **URLs**: Verificação de formato e segurança
+- ✅ **Duplicidade**: Prevenção robusta de dados duplicados
 
-```bash
-# Chaves fortes
-SECRET_KEY=$(openssl rand -hex 32)
-EVOLUTION_WEBHOOK_SECRET=$(openssl rand -hex 16)
+### Boas Práticas
+- **Containers não-root**: Usuários dedicados em todos os containers
+- **Health checks**: Monitoramento contínuo de componentes
+- **Logs estruturados**: Rastreabilidade completa de operações
+- **Validação de entrada**: Sanitização rigorosa de dados
 
-# CORS restritivo
-CORS_ORIGINS=https://seudominio.com,https://admin.seudominio.com
+## 🐳 Docker
 
-# Rate limiting
-RATE_LIMIT_REQUESTS=30
-RATE_LIMIT_PERIOD=60
+### Volumes Persistentes
+```yaml
+volumes/
+├── game_data/     # Estado do jogo e campanhas
+├── logs/          # Logs da aplicação
+├── sessions/      # Sessões WhatsApp
+├── characters/    # Dados de personagens
+├── backups/       # Backups automáticos
+├── ai_configs/    # Configurações de IA
+└── gui_data/      # Dados da interface
 ```
 
-### Backup
+### Comandos Úteis
+```bash
+# Rebuild completo
+docker-compose down && docker-compose up --build -d
+
+# Backup de volumes
+docker run --rm -v whatsapp-rpg-gm_game_data:/source:ro -v $(pwd)/backup:/backup alpine tar czf /backup/game_data.tar.gz -C /source .
+
+# Restore de backup
+docker run --rm -v whatsapp-rpg-gm_game_data:/target -v $(pwd)/backup:/backup alpine tar xzf /backup/game_data.tar.gz -C /target
+
+# Logs em tempo real
+docker-compose logs -f
+
+# Entrar no container
+docker-compose exec whatsapp_rpg_gm bash
+```
+
+## 🔄 Atualizações
+
+### Processo Seguro
+1. **Backup**: Sempre faça backup antes de atualizar
+2. **Teste**: Execute em ambiente de staging primeiro
+3. **Blue-Green**: Use deploy blue-green para zero downtime
+4. **Rollback**: Mantenha capacidade de rollback rápido
 
 ```bash
 # Backup automático
-docker-compose exec postgres pg_dump -U postgres rpg_gm_db > backup_$(date +%Y%m%d).sql
+./scripts/backup.sh
 
-# Restore
-docker-compose exec -T postgres psql -U postgres rpg_gm_db < backup_20240101.sql
-```
+# Atualizar código
+git pull origin main
 
-## 📈 Performance
+# Rebuild com novo código
+docker-compose up --build -d
 
-### Recomendações de Hardware
-
-- **Mínimo**: 2 CPU, 4GB RAM, 20GB disco
-- **Recomendado**: 4 CPU, 8GB RAM, 50GB disco
-- **Produção**: 8 CPU, 16GB RAM, 100GB disco SSD
-
-### Otimizações
-
-```yaml
-# docker-compose.yml
-services:
-  app:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-        reservations:
-          cpus: '1'
-          memory: 2G
+# Verificar funcionamento
+curl http://localhost:8000/health/detailed
 ```
 
 ## 🤝 Contribuição
 
-### Como Contribuir
+### Ambiente de Desenvolvimento
+```bash
+# Clone e setup
+git clone https://github.com/seu-usuario/whatsapp-rpg-gm.git
+cd whatsapp-rpg-gm
 
-1. Fork o projeto
-2. Crie uma branch para sua feature
-3. Commit suas mudanças
-4. Push para a branch
-5. Abra um Pull Request
+# Instalar dependências locais
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
-### Diretrizes
+# Setup pre-commit hooks
+pre-commit install
 
-- Siga o estilo de código existente
-- Adicione testes para novas funcionalidades
-- Documente APIs e funções importantes
-- Mantenha compatibilidade com versões anteriores
+# Executar localmente
+uvicorn app.main:app --reload
+```
 
-## 📄 Licença
+### Padrões de Código
+- **Black**: Formatação automática
+- **isort**: Organização de imports
+- **flake8**: Linting
+- **mypy**: Type checking
+- **pytest**: Testes com 80%+ cobertura
+
+### Pull Requests
+1. Fork o repositório
+2. Crie branch para feature (`git checkout -b feature/nova-funcionalidade`)
+3. Commit mudanças (`git commit -m 'Adiciona nova funcionalidade'`)
+4. Push para branch (`git push origin feature/nova-funcionalidade`)
+5. Abra Pull Request
+
+## 📝 Licença
 
 Este projeto está licenciado sob a MIT License - veja o arquivo [LICENSE](LICENSE) para detalhes.
 
-## 🙏 Agradecimentos
+## 🆘 Suporte
 
-- **Evolution API** - Integração WhatsApp
-- **FastAPI** - Framework web moderno
-- **D&D 5e** - Sistema de RPG base
-- **OpenAI/Anthropic/Google** - Provedores de IA
-- **Comunidade RPG** - Feedback e sugestões
+### Problemas Comuns
 
-## 📞 Suporte
+#### Erro de Conexão com Banco
+```bash
+# Verificar se containers estão rodando
+docker-compose ps
 
-- **Issues**: https://github.com/seu-usuario/whatsapp-rpg-gm/issues
-- **Discord**: https://discord.gg/seu-servidor
-- **Email**: suporte@seudominio.com
+# Verificar logs do banco
+docker-compose logs postgres
+
+# Resetar banco (CUIDADO!)
+docker-compose down -v
+docker-compose up -d
+```
+
+#### Erro de Evolution API
+```bash
+# Verificar configuração
+curl -H "apikey: $EVOLUTION_API_KEY" $EVOLUTION_API_URL/instance/connectionState/$INSTANCE_NAME
+
+# Verificar webhook
+curl -X POST -H "Content-Type: application/json" -d '{"test": true}' http://localhost:8000/webhook/message
+```
+
+#### Problemas de IA
+```bash
+# Verificar chaves de API
+curl http://localhost:8000/health/detailed | jq '.checks.ai_services'
+
+# Testar provedor específico
+python -c "import openai; print(openai.Model.list())"
+```
+
+### Documentação
+- **API**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+- **Health**: `http://localhost:8000/health/detailed`
+
+### Contato
+- **Email**: contato@whatsapprpg.com
+- **Issues**: GitHub Issues
+- **Discussões**: GitHub Discussions
 
 ---
 
-*Desenvolvido com ❤️ para a comunidade RPG brasileira*
+**Desenvolvido com ❤️ para a comunidade RPG** 🎲
