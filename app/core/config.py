@@ -5,17 +5,21 @@ Implementa validação robusta de variáveis de ambiente
 
 import os
 import sys
+import platform
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 
 from pydantic import BaseSettings, Field, validator, AnyUrl
 from pydantic.env_settings import SettingsSourceCallable
 
+# Detectar ambiente Windows
+IS_WINDOWS = platform.system() == "Windows"
 
 class Settings(BaseSettings):
     """
     Configurações da aplicação com validação robusta
     Implementa todas as recomendações de verificação de variáveis de ambiente
+    Suporte otimizado para Windows 11
     """
     
     # ==========================================
@@ -30,10 +34,17 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     DEBUG: bool = Field(default=False, env="DEBUG")
     
+    # Configurações específicas para Windows
+    IS_WINDOWS: bool = Field(default=IS_WINDOWS)
+    WINDOWS_OPTIMIZED: bool = Field(default=IS_WINDOWS, env="WINDOWS_OPTIMIZED")
+    
     # Configurações de servidor
     APP_HOST: str = Field(default="0.0.0.0", env="APP_HOST")
     APP_PORT: int = Field(default=8000, env="APP_PORT")
     AUTO_RELOAD: bool = Field(default=True, env="AUTO_RELOAD")
+    
+    # Workers (ajustado para Windows)
+    WORKERS: int = Field(default=1 if IS_WINDOWS else 4, env="WORKERS")
     
     # ==========================================
     # SEGURANÇA - VALIDAÇÃO CRÍTICA
@@ -233,11 +244,72 @@ class Settings(BaseSettings):
         if not v.startswith(('postgresql://', 'postgres://', 'sqlite:///')):
             raise ValueError("DATABASE_URL deve usar PostgreSQL ou SQLite")
         
-        # Verificar se não é URL de exemplo
-        if "rpg_password" in v and "postgres:5432" in v:
-            raise ValueError("Configure DATABASE_URL com credenciais reais")
+        # Verificar se não é URL de exemplo (mas permitir em desenvolvimento Windows)
+        if "rpg_password" in v and "postgres:5432" in v and not IS_WINDOWS:
+            raise ValueError("Configure DATABASE_URL com credenciais reais em produção")
         
         return v
+    
+    # ==========================================
+    # CACHE E REDIS - VALIDAÇÃO CRÍTICA
+    # ==========================================
+    
+    # URL completa do Redis
+    REDIS_URL: str = Field(env="REDIS_URL")
+    
+    # Configurações individuais
+    REDIS_HOST: str = Field(default="redis", env="REDIS_HOST")
+    REDIS_PORT: int = Field(default=6379, env="REDIS_PORT")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
+    REDIS_DB: int = Field(default=0, env="REDIS_DB")
+    REDIS_TTL: int = Field(default=3600, env="REDIS_TTL")
+    
+    @validator('REDIS_URL')
+    def validate_redis_url(cls, v):
+        """Validação da URL do Redis"""
+        if not v:
+            raise ValueError("REDIS_URL é obrigatória")
+        
+        if not v.startswith('redis://'):
+            raise ValueError("REDIS_URL deve começar com 'redis://'")
+        
+        return v
+    
+    # ==========================================
+    # CONFIGURAÇÕES DE DIRETÓRIOS (WINDOWS FRIENDLY)
+    # ==========================================
+    
+    # Diretórios para dados (ajustados para Windows)
+    DATA_DIR: str = Field(default="data", env="DATA_DIR")
+    LOG_DIR: str = Field(default="logs", env="LOG_DIR")
+    SESSIONS_DIR: str = Field(default="sessions", env="SESSIONS_DIR")
+    CHARACTERS_DIR: str = Field(default="characters", env="CHARACTERS_DIR")
+    BACKUPS_DIR: str = Field(default="backups", env="BACKUPS_DIR")
+    AI_CONFIGS_DIR: str = Field(default="ai_configs", env="AI_CONFIGS_DIR")
+    
+    # ==========================================
+    # CONFIGURAÇÕES DE PERFORMANCE (WINDOWS)
+    # ==========================================
+    
+    # Timeout para requisições (menor no Windows)
+    REQUEST_TIMEOUT: int = Field(default=15 if IS_WINDOWS else 30, env="REQUEST_TIMEOUT")
+    
+    # Rate limiting
+    RATE_LIMIT: int = Field(default=100, env="RATE_LIMIT")
+    
+    # Tamanho máximo de upload
+    MAX_UPLOAD_SIZE: int = Field(default=10, env="MAX_UPLOAD_SIZE")
+    
+    # ==========================================
+    # CONFIGURAÇÕES DE MONITORAMENTO
+    # ==========================================
+    
+    # Métricas
+    ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
+    METRICS_ENDPOINT: str = Field(default="/metrics", env="METRICS_ENDPOINT")
+    
+    # Health check detalhado
+    DETAILED_HEALTH_CHECK: bool = Field(default=True, env="DETAILED_HEALTH_CHECK")
     
     # ==========================================
     # REDIS - VALIDAÇÃO DE CACHE
@@ -480,10 +552,49 @@ def get_ai_config() -> Dict[str, Any]:
     return config
 
 
-def get_log_config() -> Dict[str, Any]:
-    """Retorna configuração de logging"""
+def is_windows() -> bool:
+    """Verifica se está rodando no Windows"""
+    return settings.IS_WINDOWS
+
+
+def get_windows_optimized_config() -> Dict[str, Any]:
+    """Retorna configurações otimizadas para Windows"""
+    if not is_windows():
+        return {}
+    
     return {
-        "level": settings.LOG_LEVEL,
-        "max_size": settings.LOG_MAX_SIZE,
-        "backup_count": settings.LOG_BACKUP_COUNT,
+        "workers": 1,  # Single worker no Windows
+        "timeout": 15,  # Timeout menor
+        "pool_size": 5,  # Pool menor
+        "use_winpty": True,  # Para terminal
+        "encoding": "utf-8",  # Encoding padrão
+    }
+
+
+def ensure_directories() -> None:
+    """Cria diretórios necessários se não existirem"""
+    directories = [
+        settings.DATA_DIR,
+        settings.LOG_DIR,
+        settings.SESSIONS_DIR,
+        settings.CHARACTERS_DIR,
+        settings.BACKUPS_DIR,
+        settings.AI_CONFIGS_DIR,
+    ]
+    
+    from pathlib import Path
+    for directory in directories:
+        Path(directory).mkdir(parents=True, exist_ok=True)
+
+
+def get_platform_info() -> Dict[str, str]:
+    """Retorna informações da plataforma"""
+    return {
+        "system": platform.system(),
+        "release": platform.release(),
+        "version": platform.version(),
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "python_version": platform.python_version(),
+        "is_windows": str(is_windows()),
     }

@@ -1,9 +1,12 @@
 """
 Configuração de banco de dados com SQLAlchemy
 Implementa conexão e sessões para persistência de dados
+Suporte para Windows e Linux/Docker
 """
 
 import logging
+import os
+import platform
 from typing import AsyncGenerator
 
 from sqlalchemy import create_engine
@@ -22,28 +25,61 @@ Base = declarative_base()
 # URL do banco de dados
 DATABASE_URL = get_database_url()
 
-# Opções de engine
-engine_options = {
-    "pool_pre_ping": True,
-    "pool_recycle": 3600,
-    "pool_size": settings.DB_POOL_SIZE,
-    "max_overflow": settings.DB_MAX_OVERFLOW,
-    "poolclass": QueuePool,
-    "connect_args": {
-        # Para PostgreSQL: keepalives
-        "keepalives": 1,
-        "keepalives_idle": 60,
-        "keepalives_interval": 10,
-        "keepalives_count": 5,
-    },
-}
+# Detectar se está rodando no Windows
+IS_WINDOWS = platform.system() == "Windows"
+
+# Configurações específicas para Windows
+def get_windows_db_config():
+    """Configurações otimizadas para Windows"""
+    return {
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,  # Menor para Windows
+        "pool_size": min(settings.DB_POOL_SIZE, 5),  # Limitar pool no Windows
+        "max_overflow": min(settings.DB_MAX_OVERFLOW, 10),
+        "poolclass": QueuePool,
+        "connect_args": {
+            # Configurações específicas do Windows
+            "connect_timeout": 10,
+            "application_name": "WhatsApp_RPG_GM_Windows",
+        },
+    }
+
+# Configurações para Docker/Linux
+def get_docker_db_config():
+    """Configurações para ambiente Docker/Linux"""
+    return {
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+        "pool_size": settings.DB_POOL_SIZE,
+        "max_overflow": settings.DB_MAX_OVERFLOW,
+        "poolclass": QueuePool,
+        "connect_args": {
+            # Para PostgreSQL: keepalives
+            "keepalives": 1,
+            "keepalives_idle": 60,
+            "keepalives_interval": 10,
+            "keepalives_count": 5,
+        },
+    }
+
+# Selecionar configuração baseada no ambiente
+if IS_WINDOWS:
+    engine_options = get_windows_db_config()
+    logger.info("🪟 Configuração de banco para Windows carregada")
+else:
+    engine_options = get_docker_db_config()
+    logger.info("🐧 Configuração de banco para Linux/Docker carregada")
 
 # Ajustes para SQLite
 if DATABASE_URL.startswith("sqlite"):
-    engine_options.pop("pool_size", None)
-    engine_options.pop("max_overflow", None)
-    engine_options.pop("poolclass", None)
-    engine_options["connect_args"] = {"check_same_thread": False}
+    engine_options = {
+        "pool_pre_ping": True,
+        "connect_args": {"check_same_thread": False}
+    }
+    # Criar diretório para SQLite se necessário
+    if IS_WINDOWS:
+        os.makedirs("data", exist_ok=True)
+    logger.info("📁 Configuração SQLite aplicada")
 
 # Criar engine do SQLAlchemy
 try:
