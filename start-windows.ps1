@@ -49,41 +49,105 @@ function Write-Info {
 function Test-Services {
     Write-Header "Verificando Serviços"
     
+    $allOk = $true
+    
+    # Ler configurações do .env
+    $envFile = ".env"
+    $dbHost = "localhost"
+    $dbPort = 5432
+    $redisHost = "localhost"
+    $redisPort = 6379
+    
+    if (Test-Path $envFile) {
+        $envContent = Get-Content $envFile
+        foreach ($line in $envContent) {
+            if ($line -match "^DB_HOST=(.+)$") { $dbHost = $matches[1] }
+            if ($line -match "^DB_PORT=(\d+)$") { $dbPort = [int]$matches[1] }
+            if ($line -match "^REDIS_HOST=(.+)$") { $redisHost = $matches[1] }
+            if ($line -match "^REDIS_PORT=(\d+)$") { $redisPort = [int]$matches[1] }
+        }
+    }
+    
     # Verificar PostgreSQL
-    $postgresService = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue
-    if ($postgresService -and $postgresService.Status -eq "Running") {
-        Write-Success "PostgreSQL está rodando"
+    Write-Info "Testando PostgreSQL ($dbHost`:$dbPort)..."
+    $postgresTest = Test-NetConnection -ComputerName $dbHost -Port $dbPort -WarningAction SilentlyContinue
+    if ($postgresTest.TcpTestSucceeded) {
+        Write-Success "PostgreSQL ($dbHost`:$dbPort) está acessível"
         
-        # Testar conexão        try {
-            $env:PGPASSWORD = "rpg_password"
-            psql -U postgres -h localhost -d rpg_db -c "SELECT 1;" 2>$null | Out-Null
-            Write-Success "Conexão com banco de dados OK"
-        } catch {
-            Write-Error "Erro ao conectar com PostgreSQL"
+        # Testar conexão se psql estiver disponível
+        $psqlPath = Get-Command psql -ErrorAction SilentlyContinue
+        if ($psqlPath) {
+            try {
+                $testQuery = & psql -h $dbHost -p $dbPort -U postgres -d postgres -c "SELECT 1;" 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Success "Conexão com PostgreSQL: OK"
+                } else {
+                    Write-Warning "PostgreSQL acessível mas falha na autenticação"
+                    Write-Info "Verifique as credenciais no arquivo .env"
+                }
+            } catch {
+                Write-Warning "Erro ao testar conexão PostgreSQL: $($_.Exception.Message)"
+            }
         }
     } else {
-        Write-Error "PostgreSQL não está rodando"
-        Write-Info "Iniciando PostgreSQL..."
-        Start-Service postgresql*
+        Write-Error "PostgreSQL ($dbHost`:$dbPort) não está acessível"
+        $allOk = $false
+        
+        if ($dbHost -ne "localhost") {
+            Write-Info "Verifique se:"
+            Write-Info "  1. PostgreSQL está rodando em $dbHost`:$dbPort"
+            Write-Info "  2. Firewall permite conexões na porta $dbPort"
+            Write-Info "  3. PostgreSQL aceita conexões remotas"
+        } else {
+            # Tentar iniciar serviço local
+            $postgresService = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue
+            if ($postgresService) {
+                Write-Info "Iniciando PostgreSQL local..."
+                Start-Service postgresql*
+            }
+        }
     }
     
     # Verificar Redis
-    $redisService = Get-Service -Name "Redis" -ErrorAction SilentlyContinue
-    if ($redisService -and $redisService.Status -eq "Running") {
-        Write-Success "Redis está rodando"
+    Write-Info "Testando Redis ($redisHost`:$redisPort)..."
+    $redisTest = Test-NetConnection -ComputerName $redisHost -Port $redisPort -WarningAction SilentlyContinue
+    if ($redisTest.TcpTestSucceeded) {
+        Write-Success "Redis ($redisHost`:$redisPort) está acessível"
         
-        # Testar conexão Redis
-        try {
-            redis-cli ping | Out-Null
-            Write-Success "Conexão com Redis OK"
-        } catch {
-            Write-Error "Erro ao conectar com Redis"
+        # Testar conexão se redis-cli estiver disponível
+        $redisCliPath = Get-Command redis-cli -ErrorAction SilentlyContinue
+        if ($redisCliPath) {
+            try {
+                $pingResult = & redis-cli -h $redisHost -p $redisPort ping 2>&1
+                if ($pingResult -match "PONG") {
+                    Write-Success "Conexão com Redis: OK"
+                } else {
+                    Write-Warning "Redis acessível mas falha no ping: $pingResult"
+                }
+            } catch {
+                Write-Warning "Erro ao testar conexão Redis: $($_.Exception.Message)"
+            }
         }
     } else {
-        Write-Error "Redis não está rodando"
-        Write-Info "Iniciando Redis..."
-        Start-Service Redis
+        Write-Error "Redis ($redisHost`:$redisPort) não está acessível"
+        $allOk = $false
+        
+        if ($redisHost -ne "localhost") {
+            Write-Info "Verifique se:"
+            Write-Info "  1. Redis está rodando em $redisHost`:$redisPort"
+            Write-Info "  2. Firewall permite conexões na porta $redisPort"
+            Write-Info "  3. Redis aceita conexões remotas"
+        } else {
+            # Tentar iniciar serviço local
+            $redisService = Get-Service -Name "Redis" -ErrorAction SilentlyContinue
+            if ($redisService) {
+                Write-Info "Iniciando Redis local..."
+                Start-Service Redis
+            }
+        }
     }
+    
+    return $allOk
 }
 
 # ==========================================

@@ -4,47 +4,49 @@ Guia completo para executar o WhatsApp RPG Game Master no Windows 11 **sem Docke
 
 ## 🚀 Instalação Rápida no Windows 11
 
-### 1. Pré-requisitos
+### Opção 1: Setup Automático Inteligente (Recomendado)
 
-Certifique-se de ter:
-- **Windows 11** (build 22000 ou superior)
-- **PowerShell 5.1+** (já incluído no Windows 11)
-- **Acesso de Administrador** (para instalação inicial)
-
-### 2. Instalação Automatizada
-
-Execute o PowerShell **como Administrador** e rode:
+O script de setup agora detecta automaticamente instalações existentes e serviços remotos:
 
 ```powershell
-# Baixar e executar o script de setup
+# 1. Testar conectividade com seus serviços remotos
+.\test-connectivity.ps1
+
+# 2. Executar setup inteligente (como Administrador)
 .\setup-windows.ps1
+
+# 3. Para setup totalmente automático
+.\setup-windows.ps1 -AutoMode
+
+# 4. Para pular componentes específicos
+.\setup-windows.ps1 -SkipPython -SkipPostgreSQL
 ```
 
-Este script irá:
-- ✅ Instalar Python 3.11
-- ✅ Instalar PostgreSQL
-- ✅ Instalar Redis
-- ✅ Configurar serviços do Windows
+O script irá:
+- ✅ Detectar Python existente ou instalar Python 3.11
+- ✅ Configurar PostgreSQL remoto (192.168.22.111:5432) ou local
+- ✅ Configurar Redis remoto (192.168.22.111:6379) ou local
+- ✅ Testar conectividade com os serviços
 - ✅ Criar ambiente virtual Python
+- ✅ Gerar arquivo .env com configurações detectadas
 - ✅ Instalar dependências
 - ✅ Configurar banco de dados
-- ✅ Configurar firewall
 
-### 3. Iniciar a Aplicação
+### Opção 2: Configuração Manual com Serviços Remotos
+
+Se você já tem PostgreSQL e Redis rodando em `192.168.22.111`:
 
 ```powershell
-# Iniciar em modo desenvolvimento
+# 1. Testar conectividade primeiro
+.\test-connectivity.ps1 -PostgreSQLHost "192.168.22.111" -RedisHost "192.168.22.111" -Detailed
+
+# 2. Configurar apenas Python e dependências
+.\setup-windows.ps1 -SkipPostgreSQL -SkipRedis
+
+# 3. Editar .env com suas credenciais
+# 4. Iniciar aplicação
 .\start-windows.ps1
-
-# Ou usar o script batch simples
-.\start-quick.bat
 ```
-
-### 4. Acessar a Aplicação
-
-- **API Principal**: http://localhost:8000
-- **Documentação**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
 
 ## ⚙️ Configuração Manual (Alternativa)
 
